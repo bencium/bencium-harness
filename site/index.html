@@ -1,0 +1,1486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bencium-harness · Plan, red, green, ship, verify on the live URL</title>
+<meta name="description" content="A Claude Code plugin: plan-gated builds, TDD red→green, local verify, and a separate SMOKE phase that re-walks acceptance against the deployed URL. Local pass never marks shipped.">
+<meta name="theme-color" content="#0a0d12">
+<meta property="og:title" content="bencium-harness — Plan, red, green, ship, verify on the live URL">
+<meta property="og:description" content="Plan before code. Failing test before implementation. Verify locally, then verify on the deployed URL. Local pass != shipped.">
+<meta property="og:type" content="website">
+
+<style>
+  :root {
+    --bg:         oklch(10% 0.012 250);
+    --bg-2:       oklch(13% 0.014 250);
+    --surface:    oklch(15% 0.014 250);
+    --surface-2:  oklch(18% 0.014 250);
+    --rule:       oklch(24% 0.014 250);
+    --rule-soft:  oklch(20% 0.012 250);
+
+    --ink:        oklch(97% 0.005 250);
+    --ink-soft:   oklch(78% 0.008 250);
+    --muted:      oklch(56% 0.012 250);
+    --faint:      oklch(40% 0.012 250);
+
+    /* phase neon */
+    --plan:       oklch(78% 0.17 220);
+    --plan-dim:   oklch(50% 0.13 220);
+    --build:      oklch(78% 0.2  145);
+    --build-dim:  oklch(50% 0.14 145);
+    --test:       oklch(85% 0.18 95);
+    --test-dim:   oklch(58% 0.13 95);
+    --reflect:    oklch(72% 0.22 320);
+    --reflect-dim:oklch(50% 0.15 320);
+    --deploy:     oklch(75% 0.22 245);
+    --deploy-dim: oklch(52% 0.16 245);
+    --smoke:      oklch(72% 0.22 340);
+    --smoke-dim:  oklch(50% 0.15 340);
+
+    --mono: ui-monospace, "JetBrains Mono", "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, monospace;
+    --sans: system-ui, -apple-system, "Inter", "Segoe UI", Roboto, sans-serif;
+
+    --maxw: 1280px;
+    --ease: cubic-bezier(.2,.7,.2,1);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg:         oklch(98% 0.005 250);
+      --bg-2:       oklch(96% 0.006 250);
+      --surface:    oklch(100% 0 0);
+      --surface-2:  oklch(96.5% 0.008 250);
+      --rule:       oklch(88% 0.008 250);
+      --rule-soft:  oklch(92% 0.006 250);
+      --ink:        oklch(15% 0.014 250);
+      --ink-soft:   oklch(36% 0.012 250);
+      --muted:      oklch(52% 0.012 250);
+      --faint:      oklch(68% 0.01 250);
+
+      --plan:       oklch(52% 0.16 220);
+      --build:      oklch(50% 0.16 145);
+      --test:       oklch(55% 0.15 95);
+      --reflect:    oklch(48% 0.18 320);
+      --deploy:     oklch(50% 0.2 245);
+      --smoke:      oklch(50% 0.18 340);
+      --smoke-dim:  oklch(65% 0.12 340);
+    }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--ink);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% -10%, color-mix(in oklch, var(--plan) 18%, transparent), transparent 60%),
+      radial-gradient(circle at 0% 100%, color-mix(in oklch, var(--reflect) 12%, transparent), transparent 50%),
+      radial-gradient(circle at 100% 50%, color-mix(in oklch, var(--deploy) 10%, transparent), transparent 50%);
+    background-attachment: fixed;
+  }
+
+  /* dotted grid texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle, var(--rule) 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 0.5;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black, transparent 80%);
+    z-index: 0;
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 0 clamp(1.25rem, 4vw, 2.5rem);
+  }
+
+  ::selection { background: var(--plan); color: var(--bg); }
+  .kbd {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    padding: 0.1em 0.45em;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    color: var(--plan);
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  /* ---------- nav ---------- */
+  nav.top {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 0;
+    background: color-mix(in oklch, var(--bg) 70%, transparent);
+    backdrop-filter: saturate(160%) blur(14px);
+    -webkit-backdrop-filter: saturate(160%) blur(14px);
+    border-bottom: 1px solid transparent;
+    transition: border-color 240ms var(--ease);
+    margin-bottom: clamp(2rem, 5vh, 4rem);
+  }
+  nav.top.scrolled { border-bottom-color: var(--rule); }
+  nav.top .mark {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  nav.top .mark .dot {
+    width: 9px; height: 9px;
+    border-radius: 2px;
+    background: var(--plan);
+    box-shadow: 0 0 12px var(--plan);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  nav.top .links {
+    display: flex;
+    gap: 1.75rem;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  nav.top .links a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 160ms var(--ease);
+  }
+  nav.top .links a:hover { color: var(--ink); }
+  nav.top .gh {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink);
+    text-decoration: none;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    transition: border-color 160ms var(--ease), color 160ms var(--ease);
+  }
+  nav.top .gh:hover { border-color: var(--plan); color: var(--plan); }
+  @media (max-width: 720px) {
+    nav.top .links { display: none; }
+  }
+
+  /* ---------- hero ---------- */
+  .hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: clamp(2rem, 5vw, 4rem);
+    align-items: end;
+    padding: clamp(3rem, 8vh, 6rem) 0 clamp(4rem, 10vh, 7rem);
+  }
+  @media (max-width: 980px) {
+    .hero { grid-template-columns: 1fr; align-items: start; }
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 1.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.8rem;
+  }
+  .eyebrow .tag {
+    color: var(--plan);
+    padding: 0.2em 0.55em;
+    border: 1px solid var(--plan-dim);
+    border-radius: 3px;
+    background: color-mix(in oklch, var(--plan) 8%, transparent);
+  }
+  .eyebrow .sep { color: var(--faint); }
+
+  .hero h1 {
+    font-family: var(--mono);
+    font-size: clamp(2.5rem, 6.4vw, 5.75rem);
+    font-weight: 500;
+    line-height: 0.98;
+    letter-spacing: -0.045em;
+    margin-bottom: 2rem;
+    max-width: 16ch;
+  }
+  .hero h1 .accent {
+    background: linear-gradient(110deg, var(--plan), var(--reflect) 55%, var(--deploy));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero h1 .strike {
+    position: relative;
+    color: var(--muted);
+  }
+  .hero h1 .strike::after {
+    content: '';
+    position: absolute;
+    left: -2%; right: -2%;
+    top: 54%;
+    height: 6px;
+    background: var(--plan);
+    transform: rotate(-2deg);
+    border-radius: 3px;
+    opacity: 0.9;
+  }
+
+  .hero .lead {
+    font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
+    line-height: 1.5;
+    color: var(--ink-soft);
+    max-width: 46ch;
+    margin-bottom: 2.5rem;
+  }
+
+  .cta-row {
+    display: flex;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 2.25rem;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.95rem 1.5rem;
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 13.5px;
+    font-weight: 500;
+    text-decoration: none;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    transition: transform 200ms var(--ease), box-shadow 200ms var(--ease), border-color 200ms var(--ease), background 200ms var(--ease), color 200ms var(--ease);
+    min-height: 46px;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--ink);
+    color: var(--bg);
+    border-color: var(--ink);
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 32px -10px color-mix(in oklch, var(--plan) 60%, transparent),
+                0 0 0 1px var(--plan);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink-soft);
+    border-color: var(--rule);
+  }
+  .btn-ghost:hover { color: var(--plan); border-color: var(--plan); }
+
+  .meta-strip {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    letter-spacing: 0.04em;
+  }
+  .meta-strip span::before {
+    content: '◆';
+    margin-right: 0.45em;
+    color: var(--plan-dim);
+    font-size: 0.8em;
+  }
+
+  /* hero terminal */
+  .hero-term {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    overflow: hidden;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    box-shadow:
+      0 30px 80px -30px black,
+      0 0 0 1px color-mix(in oklch, var(--plan) 25%, transparent);
+    transform: perspective(1200px) rotateY(-3deg) rotateX(1deg);
+    transform-origin: left center;
+  }
+  @media (max-width: 980px) { .hero-term { transform: none; } }
+  .term-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.7rem 0.9rem;
+    border-bottom: 1px solid var(--rule);
+    background: var(--bg-2);
+  }
+  .term-bar .led {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--rule);
+  }
+  .term-bar .led.r { background: oklch(70% 0.18 25); }
+  .term-bar .led.y { background: oklch(80% 0.16 80); }
+  .term-bar .led.g { background: var(--build); }
+  .term-bar .title {
+    margin-left: 0.6rem;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+  }
+  .term-body { padding: 1rem 1.1rem; min-height: 280px; }
+  .term-body .line { color: var(--ink-soft); }
+  .term-body .line.cmd::before {
+    content: '› ';
+    color: var(--plan);
+  }
+  .term-body .line.dim  { color: var(--muted); }
+  .term-body .line.ok   { color: var(--build); }
+  .phase-cycle {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0.6rem 0 0.4rem;
+    font-size: 13px;
+  }
+  .phase-cycle .glyph {
+    display: inline-flex;
+    width: 28px; height: 28px;
+    align-items: center; justify-content: center;
+    border-radius: 6px;
+    border: 1px solid;
+    transition: transform 240ms var(--ease), box-shadow 240ms var(--ease);
+  }
+  .phase-cycle .glyph.active { transform: scale(1.15); }
+  .phase-cycle .glyph.plan    { color: var(--plan);    border-color: var(--plan-dim); }
+  .phase-cycle .glyph.build   { color: var(--build);   border-color: var(--build-dim); }
+  .phase-cycle .glyph.test    { color: var(--test);    border-color: var(--test-dim); }
+  .phase-cycle .glyph.deploy  { color: var(--deploy);  border-color: var(--deploy-dim); }
+  .phase-cycle .glyph.smoke   { color: var(--smoke);   border-color: var(--smoke-dim); }
+  .phase-cycle .glyph.reflect { color: var(--reflect); border-color: var(--reflect-dim); }
+  .phase-cycle .glyph.active.plan    { box-shadow: 0 0 24px color-mix(in oklch, var(--plan) 60%, transparent); }
+  .phase-cycle .glyph.active.build   { box-shadow: 0 0 24px color-mix(in oklch, var(--build) 60%, transparent); }
+  .phase-cycle .glyph.active.test    { box-shadow: 0 0 24px color-mix(in oklch, var(--test) 60%, transparent); }
+  .phase-cycle .glyph.active.deploy  { box-shadow: 0 0 24px color-mix(in oklch, var(--deploy) 60%, transparent); }
+  .phase-cycle .glyph.active.smoke   { box-shadow: 0 0 24px color-mix(in oklch, var(--smoke) 60%, transparent); }
+  .phase-cycle .glyph.active.reflect { box-shadow: 0 0 24px color-mix(in oklch, var(--reflect) 60%, transparent); }
+  .cursor {
+    display: inline-block;
+    width: 0.55em; height: 1em;
+    background: var(--plan);
+    vertical-align: -2px;
+    animation: blink 1.05s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* statusline preview — mimics Claude Code's bottom bar */
+  .term-statusline {
+    border-top: 1px solid var(--rule);
+    background: var(--bg-2);
+    padding: 0.55rem 1.1rem 0.65rem;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+  .term-statusline .row1 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    color: var(--ink-soft);
+  }
+  .term-statusline .row1 .strip { letter-spacing: 0.04em; }
+  .term-statusline .row1 .strip .active {
+    color: var(--build);
+    text-shadow: 0 0 8px color-mix(in oklch, var(--build) 50%, transparent);
+  }
+  .term-statusline .row1 .proj {
+    color: var(--ink);
+    font-weight: 500;
+    margin-left: 0.4rem;
+  }
+  .term-statusline .row2 {
+    margin-top: 0.25rem;
+    color: var(--muted);
+    display: flex;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .term-statusline .row2 .task {
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+  .term-statusline .row2 .sep { color: var(--faint); }
+  .term-statusline .label { color: var(--faint); font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.25rem; display: block; }
+
+  /* ---------- stats strip ---------- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: clamp(5rem, 12vh, 8rem);
+  }
+  @media (max-width: 760px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .stats > div:last-child { grid-column: 1 / -1; }
+  }
+  .stat {
+    background: var(--surface);
+    padding: 1.5rem 1.25rem;
+    text-align: left;
+  }
+  .stat .num {
+    font-family: var(--mono);
+    font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    color: var(--ink);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+  .stat .num em {
+    color: var(--plan);
+    font-style: normal;
+  }
+  .stat .lbl {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* ---------- marquee ---------- */
+  .marquee {
+    margin: 0 calc(-1 * clamp(1.25rem, 4vw, 2.5rem)) clamp(5rem, 12vh, 8rem);
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    overflow: hidden;
+    background: var(--bg-2);
+    padding: 1.1rem 0;
+    position: relative;
+  }
+  .marquee::before, .marquee::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 80px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .marquee::before {
+    left: 0;
+    background: linear-gradient(90deg, var(--bg-2), transparent);
+  }
+  .marquee::after {
+    right: 0;
+    background: linear-gradient(270deg, var(--bg-2), transparent);
+  }
+  .marquee-track {
+    display: flex;
+    gap: 3rem;
+    width: max-content;
+    animation: scroll 32s linear infinite;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+  }
+  .marquee-track span {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .marquee-track span::before {
+    content: '/';
+    color: var(--plan);
+  }
+  @keyframes scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  /* ---------- sections ---------- */
+  section { margin-bottom: clamp(5rem, 12vh, 8rem); scroll-margin-top: 6rem; }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  .section-head .num {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--plan);
+    letter-spacing: 0.08em;
+  }
+  .section-head h2 {
+    font-family: var(--mono);
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    max-width: 22ch;
+  }
+  .section-head .blurb {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    max-width: 44ch;
+    text-align: right;
+  }
+  @media (max-width: 760px) {
+    .section-head { flex-direction: column; align-items: flex-start; gap: 1rem; }
+    .section-head .blurb { text-align: left; }
+  }
+
+  /* ---------- bento ---------- */
+  .bento {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: minmax(180px, auto);
+    gap: 1rem;
+  }
+  @media (max-width: 980px) { .bento { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .bento { grid-template-columns: 1fr; } }
+
+  .cell {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    padding: 1.5rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: border-color 200ms var(--ease), transform 200ms var(--ease);
+  }
+  .cell:hover { border-color: var(--rule); transform: translateY(-2px); }
+  .cell h3 {
+    font-family: var(--mono);
+    font-size: 14.5px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.6rem;
+    color: var(--ink);
+  }
+  .cell p {
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+  .cell .corner {
+    position: absolute;
+    top: 1rem; right: 1rem;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--faint);
+    letter-spacing: 0.05em;
+  }
+  .cell.wide  { grid-column: span 2; }
+  .cell.tall  { grid-row: span 2; }
+  @media (max-width: 980px) {
+    .cell.wide { grid-column: span 2; }
+    .cell.tall { grid-row: auto; }
+  }
+  @media (max-width: 560px) {
+    .cell.wide, .cell.tall { grid-column: auto; grid-row: auto; }
+  }
+
+  .cell.feature-plan { border-color: var(--plan-dim); }
+  .cell.feature-plan::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 100% 0%, color-mix(in oklch, var(--plan) 15%, transparent), transparent 60%);
+    pointer-events: none;
+  }
+  .cell.feature-memory { border-color: var(--reflect-dim); }
+  .cell.feature-memory::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 0% 100%, color-mix(in oklch, var(--reflect) 15%, transparent), transparent 60%);
+    pointer-events: none;
+  }
+
+  /* mock plan inside cell */
+  .mock-plan {
+    margin-top: 1rem;
+    padding: 0.9rem;
+    background: var(--bg-2);
+    border: 1px solid var(--rule-soft);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+  }
+  .mock-plan .k { color: var(--plan); }
+  .mock-plan .v { color: var(--ink); }
+
+  /* mock checklist */
+  .mock-check {
+    margin-top: 1rem;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.85;
+    color: var(--ink-soft);
+  }
+  .mock-check li { list-style: none; }
+  .mock-check li.pass::before  { content: '✓ '; color: var(--build); }
+  .mock-check li.fail::before  { content: '✗ '; color: oklch(70% 0.18 25); }
+  .mock-check li.skip::before  { content: '· '; color: var(--muted); }
+  .mock-check li.defer::before { content: '⏭ '; color: var(--smoke); }
+  .mock-check li.defer         { color: var(--smoke); }
+
+  /* phase swatches */
+  .swatch-row {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.4rem;
+    margin-top: 1rem;
+  }
+  .swatch {
+    aspect-ratio: 1 / 1;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    border: 1px solid;
+  }
+  .swatch.s1 { background: color-mix(in oklch, var(--plan) 18%, var(--bg)); color: var(--plan); border-color: var(--plan-dim); }
+  .swatch.s2 { background: color-mix(in oklch, var(--build) 18%, var(--bg)); color: var(--build); border-color: var(--build-dim); }
+  .swatch.s3 { background: color-mix(in oklch, var(--test) 18%, var(--bg)); color: var(--test); border-color: var(--test-dim); }
+  .swatch.s4 { background: color-mix(in oklch, var(--deploy) 18%, var(--bg)); color: var(--deploy); border-color: var(--deploy-dim); }
+  .swatch.s5 { background: color-mix(in oklch, var(--smoke) 18%, var(--bg)); color: var(--smoke); border-color: var(--smoke-dim); }
+  .swatch.s6 { background: color-mix(in oklch, var(--reflect) 18%, var(--bg)); color: var(--reflect); border-color: var(--reflect-dim); }
+
+  /* parallel explore subagent fan-out */
+  .fanout {
+    margin-top: 1rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .fanout .source {
+    color: var(--muted);
+    letter-spacing: 0.03em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .fanout .source .pill {
+    background: var(--bg-2);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 0.15rem 0.45rem;
+    color: var(--ink);
+    font-size: 10.5px;
+  }
+  .fanout .agents {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.4rem;
+  }
+  .fanout .agent {
+    background: var(--bg-2);
+    border: 1px solid var(--rule);
+    border-top: 2px solid var(--plan);
+    border-radius: 6px;
+    padding: 0.55rem 0.55rem 0.45rem;
+    color: var(--ink-soft);
+    line-height: 1.4;
+    min-height: 78px;
+    display: flex; flex-direction: column;
+  }
+  .fanout .agent .n {
+    color: var(--plan);
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 0.2rem;
+  }
+  .fanout .agent .t {
+    color: var(--ink);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .fanout .agent .b {
+    color: var(--muted);
+    font-size: 10px;
+    margin-top: auto;
+  }
+  .fanout .cap {
+    color: var(--faint);
+    font-size: 10.5px;
+    margin-top: 0.25rem;
+    letter-spacing: 0.04em;
+  }
+
+  /* mini memory diagram */
+  .mini-mem {
+    margin-top: 1rem;
+    display: grid;
+    grid-template-columns: 1fr 24px 1fr;
+    gap: 0.5rem;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 11.5px;
+  }
+  .mini-mem .box {
+    background: var(--bg-2);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 0.5rem 0.6rem;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+  .mini-mem .arrow {
+    text-align: center;
+    color: var(--reflect);
+    font-size: 14px;
+  }
+
+  /* countdown */
+  .countdown {
+    margin-top: auto;
+    font-family: var(--mono);
+    font-size: clamp(2rem, 5vw, 3rem);
+    letter-spacing: -0.05em;
+    color: var(--plan);
+    line-height: 1;
+  }
+  .countdown small {
+    font-size: 0.35em;
+    color: var(--muted);
+    margin-left: 0.4rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---------- loop scroll-snap ---------- */
+  .loop-strip {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 1rem;
+    margin: 0 calc(-1 * clamp(1.25rem, 4vw, 2.5rem));
+    padding-left: clamp(1.25rem, 4vw, 2.5rem);
+    padding-right: clamp(1.25rem, 4vw, 2.5rem);
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule) transparent;
+  }
+  .loop-strip::-webkit-scrollbar { height: 6px; }
+  .loop-strip::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+  .loop-card {
+    flex: 0 0 min(420px, 85vw);
+    scroll-snap-align: start;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-top: 3px solid;
+    border-radius: 10px;
+    padding: 1.75rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    min-height: 260px;
+    transition: transform 200ms var(--ease);
+  }
+  .loop-card:hover { transform: translateY(-3px); }
+  .loop-card .step {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+  }
+  .loop-card .glyph {
+    font-size: 36px;
+    line-height: 1;
+    margin-bottom: 1rem;
+  }
+  .loop-card h3 {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.6rem;
+    color: var(--ink);
+  }
+  .loop-card p {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    margin-bottom: 1rem;
+  }
+  .loop-card .cmd {
+    margin-top: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--faint);
+    padding-top: 0.85rem;
+    border-top: 1px dashed var(--rule);
+  }
+  .loop-card .cmd code { color: var(--plan); }
+
+  .loop-card.c1 { border-top-color: var(--plan); }
+  .loop-card.c2 { border-top-color: var(--plan); }
+  .loop-card.c3 { border-top-color: var(--build); }
+  .loop-card.c4 { border-top-color: var(--test); }
+  .loop-card.c5 { border-top-color: var(--deploy); }
+  .loop-card.c6 { border-top-color: var(--smoke); }
+  .loop-card.c7 { border-top-color: var(--reflect); }
+  .loop-card.c1 .glyph { color: var(--plan); }
+  .loop-card.c2 .glyph { color: var(--plan); }
+  .loop-card.c3 .glyph { color: var(--build); }
+  .loop-card.c4 .glyph { color: var(--test); }
+  .loop-card.c5 .glyph { color: var(--deploy); }
+  .loop-card.c6 .glyph { color: var(--smoke); }
+  .loop-card.c7 .glyph { color: var(--reflect); }
+
+  .loop-hint {
+    margin-top: 1rem;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    text-align: center;
+  }
+
+  /* ---------- decisions terminal ---------- */
+  .decision-term {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    overflow: hidden;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.65;
+    box-shadow: 0 30px 80px -40px black;
+  }
+  .decision-term .head {
+    padding: 0.85rem 1.1rem;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--rule);
+    color: var(--muted);
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    display: flex; justify-content: space-between;
+  }
+  .decision-term .body { padding: 1.25rem 1.4rem; }
+  .decision-row {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 1.5rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .decision-row:last-child { border-bottom: 0; }
+  .decision-row .k {
+    color: var(--plan);
+    letter-spacing: 0.02em;
+  }
+  .decision-row .k::before { content: '› '; color: var(--faint); }
+  .decision-row .v { color: var(--ink); }
+  .decision-row .v code { color: var(--reflect); background: transparent; padding: 0 0.15em; }
+  @media (max-width: 640px) {
+    .decision-row { grid-template-columns: 1fr; gap: 0.25rem; }
+  }
+
+  /* ---------- install ---------- */
+  .install-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    padding: clamp(1.75rem, 4vw, 3rem);
+    position: relative;
+    overflow: hidden;
+  }
+  .install-wrap::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    background: conic-gradient(from 90deg at 50% 50%, var(--plan), var(--reflect), var(--deploy), var(--plan));
+    z-index: -1;
+    opacity: 0.25;
+    filter: blur(40px);
+    pointer-events: none;
+  }
+  @media (max-width: 860px) { .install-wrap { grid-template-columns: 1fr; } }
+  .install-side h3 {
+    font-family: var(--mono);
+    font-size: clamp(1.25rem, 2.5vw, 1.75rem);
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    margin-bottom: 1rem;
+  }
+  .install-side p {
+    color: var(--ink-soft);
+    font-size: 15px;
+    line-height: 1.5;
+    max-width: 36ch;
+  }
+  .install-cmds { display: grid; gap: 0.6rem; }
+  .install-row {
+    display: flex;
+    align-items: stretch;
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 160ms var(--ease);
+  }
+  .install-row:hover { border-color: var(--plan-dim); }
+  .install-row code {
+    flex: 1;
+    padding: 0.95rem 1.1rem;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink);
+    user-select: all;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .install-row button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-left: 1px solid var(--rule);
+    padding: 0 1.1rem;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    min-width: 84px;
+    transition: color 160ms, background 160ms;
+  }
+  .install-row button:hover { color: var(--plan); background: color-mix(in oklch, var(--plan) 10%, transparent); }
+  .install-row button.copied { color: var(--build); }
+  .install-row button.copied::after { content: ' ✓'; }
+  .install-tip {
+    margin-top: 1rem;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    letter-spacing: 0.03em;
+  }
+
+  /* ---------- footer ---------- */
+  footer {
+    margin-top: clamp(6rem, 14vh, 9rem);
+    padding: 1.5rem 0 1rem;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  footer a { color: inherit; text-decoration: none; transition: color 160ms; }
+  footer a:hover { color: var(--ink); }
+  footer .release strong { color: var(--plan); font-weight: 500; }
+
+  /* ---------- reveal on scroll ---------- */
+  .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 700ms var(--ease), transform 700ms var(--ease);
+  }
+  .reveal.in {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* ---------- motion ---------- */
+  @media (prefers-reduced-motion: reduce) {
+    .cursor, .marquee-track, .mark .dot { animation: none !important; }
+    .hero-term { transform: none; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+    html { scroll-behavior: auto; }
+    * { transition-duration: 0ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <nav class="top" id="topnav">
+    <a href="#" class="mark"><span class="dot"></span>bencium-harness</a>
+    <div class="links">
+      <a href="#loop">loop</a>
+      <a href="#features">features</a>
+      <a href="#decisions">decisions</a>
+      <a href="#install">install</a>
+    </div>
+    <a class="gh" href="https://github.com/bencium-io/bencium-harness">GitHub ↗</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div>
+      <div class="eyebrow">
+        <span class="tag">JUN COMPASS · v0.4.0</span>
+        <span class="sep">·</span>
+        <span>A Claude Code plugin</span>
+      </div>
+      <h1>
+        Plan, red, green, ship, <span class="accent">verify on the live URL.</span>
+      </h1>
+      <p class="lead">
+        Plan before code. Write a failing test before implementation. Verify locally — then verify again on the deployed URL. A Claude Code plugin that refuses to confuse "passes on my machine" with "shipped."
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/bencium-io/bencium-harness">View on GitHub <span aria-hidden="true">→</span></a>
+        <a class="btn btn-ghost" href="#install">install in 60s</a>
+      </div>
+      <div class="meta-strip">
+        <span>9 commands</span>
+        <span>3 auto-skills</span>
+        <span>1 hook</span>
+        <span>0 infra</span>
+      </div>
+    </div>
+
+    <div class="hero-term reveal" aria-hidden="true">
+      <div class="term-bar">
+        <span class="led r"></span><span class="led y"></span><span class="led g"></span>
+        <span class="title">~/your-project — claude-code</span>
+      </div>
+      <div class="term-body">
+        <div class="line cmd">/bencium-next</div>
+        <div class="line dim">reading tasks.md · ACCEPTANCE.md · memory.md · conventions.md</div>
+        <div class="phase-cycle" id="cycle">
+          <span class="glyph plan">🗺</span>
+          <span class="glyph plan">📋</span>
+          <span class="glyph build">🔨</span>
+          <span class="glyph test">✓</span>
+          <span class="glyph deploy">🚀</span>
+          <span class="glyph smoke">🔥</span>
+          <span class="glyph reflect">💭</span>
+        </div>
+        <div class="line dim">phase: <span id="phase-name" style="color:var(--plan)">PLAN</span> · plan IS the spec</div>
+        <div class="line">📋 Task: <span style="color:var(--ink)">Add CSV export to /admin</span></div>
+        <div class="line dim">files: app/admin/page.tsx, lib/export.ts</div>
+        <div class="line dim">done when: clicking Export downloads tasks.csv</div>
+        <div class="line"><span style="color:oklch(70% 0.18 25)">🔴 red:</span> tests/export.spec.ts — Export click downloads csv</div>
+        <div class="line"><span style="color:var(--smoke)">🔥 smoke:</span> [deployed] /admin Export works at {{deploy.url}}</div>
+        <div class="line">📋 Reply 'approve' to enter BUILD phase.</div>
+        <div class="line cmd">approve<span class="cursor"></span></div>
+        <div class="line ok">✓ red→green · ✓ local verify · ✓ smoke @ deploy.url</div>
+      </div>
+      <div class="term-statusline" aria-label="Claude Code statusline preview">
+        <span class="label">— harness statusline (claude code bottom bar) —</span>
+        <div class="row1">
+          <span class="strip">🗺 ▸ 📋 ▸ <span class="active">[🔨]</span> ▸ ✓ ▸ 🚀 ▸ 🔥 ▸ 💭</span>
+          <span class="proj">todo-app</span>
+        </div>
+        <div class="row2">
+          <span class="task">"Add CSV export"</span>
+          <span class="sep">·</span>
+          <span>5 now · 7/10 ✓</span>
+          <span class="sep">·</span>
+          <span>💫 haiku $0.04</span>
+          <span class="sep">·</span>
+          <span>ctx 38%</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <div class="stats reveal">
+    <div class="stat"><div class="num"><em>60</em><span style="font-size:0.55em;color:var(--muted);">s</span></div><div class="lbl">to scaffold</div></div>
+    <div class="stat"><div class="num"><em>5</em></div><div class="lbl">questions to init</div></div>
+    <div class="stat"><div class="num"><em>2</em></div><div class="lbl">verify gates</div></div>
+    <div class="stat"><div class="num"><em>7</em></div><div class="lbl">loop phases</div></div>
+    <div class="stat"><div class="num"><em>0</em></div><div class="lbl">vendor lock-in</div></div>
+  </div>
+
+  <!-- MARQUEE -->
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <span>bencium-init</span>
+      <span>bencium-next</span>
+      <span>bencium-decide</span>
+      <span>bencium-verify</span>
+      <span>bencium-promote</span>
+      <span>bencium-feature</span>
+      <span>bencium-retro</span>
+      <span>bencium-deploy</span>
+      <span>bencium-rollback</span>
+      <!-- duplicate for seamless loop -->
+      <span>bencium-init</span>
+      <span>bencium-next</span>
+      <span>bencium-decide</span>
+      <span>bencium-verify</span>
+      <span>bencium-promote</span>
+      <span>bencium-feature</span>
+      <span>bencium-retro</span>
+      <span>bencium-deploy</span>
+      <span>bencium-rollback</span>
+    </div>
+  </div>
+
+  <!-- FEATURES BENTO -->
+  <section id="features" class="reveal">
+    <div class="section-head">
+      <div>
+        <div class="num">[ 01 ]</div>
+        <h2>What you get.</h2>
+      </div>
+      <p class="blurb">Six load-bearing pieces. Each does one thing. Together they're the rhythm.</p>
+    </div>
+
+    <div class="bento">
+      <div class="cell feature-plan wide">
+        <span class="corner">PLAN GATE</span>
+        <h3>The plan IS the spec.</h3>
+        <p>Your agent writes a 10-25 line plan and stops. The plan must name the failing test it will write first and the deployed-env row it satisfies. You approve before any code is written.</p>
+        <div class="mock-plan">
+          <div><span class="k">📋 Task:</span> <span class="v">Add CSV export</span></div>
+          <div><span class="k">files:</span> app/admin/page.tsx · lib/export.ts <span style="color:var(--build)">(NEW)</span></div>
+          <div><span class="k">done when:</span> <span class="v">Export downloads tasks.csv</span></div>
+          <div><span class="k">red test:</span> <span class="v">tests/export.spec.ts — Export click downloads csv</span></div>
+          <div><span class="k">smoke row:</span> <span class="v">[deployed] /admin Export works at {{deploy.url}}</span></div>
+        </div>
+      </div>
+
+      <div class="cell feature-memory tall">
+        <span class="corner">MEMORY</span>
+        <h3>Survives every <span class="kbd">/clear</span>.</h3>
+        <p>Decisions and learnings live in the repo. Next session opens with full context already loaded.</p>
+        <div class="mini-mem">
+          <div class="box">.harness/<br>memory.md<br>archive/</div>
+          <div class="arrow">→</div>
+          <div class="box">next session<br>auto-injected<br>full context</div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <span class="corner">VERIFY</span>
+        <h3>Refuses to confuse local pass with shipped.</h3>
+        <ul class="mock-check">
+          <li class="pass">LSP clean (pre-edit) <span style="color:var(--faint)">· tsserver · pyright · gopls</span></li>
+          <li class="pass">tests (npm test --run)</li>
+          <li class="pass">pagination (4 routes)</li>
+          <li class="pass">no secrets</li>
+          <li class="defer">[deployed] upload works · DEFERRED-TO-SMOKE</li>
+        </ul>
+      </div>
+
+      <div class="cell">
+        <span class="corner">PHASES</span>
+        <h3>Color-coded banners.</h3>
+        <p>Always know what phase the agent is in — TEST (local) and SMOKE (deployed) are different colors on purpose.</p>
+        <div class="swatch-row">
+          <div class="swatch s1">📋</div>
+          <div class="swatch s2">🔨</div>
+          <div class="swatch s3">✓</div>
+          <div class="swatch s4">🚀</div>
+          <div class="swatch s5">🔥</div>
+          <div class="swatch s6">💭</div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <span class="corner">INIT</span>
+        <h3>Five questions, sixty seconds.</h3>
+        <p>One LLM call. PRD, architecture, tasks, acceptance — all generated.</p>
+        <div class="countdown">00:60<small>SEC</small></div>
+      </div>
+
+      <div class="cell">
+        <span class="corner">BROWNFIELD</span>
+        <h3>Map a large repo in parallel.</h3>
+        <p>Three focused Explore subagents fan out at init time. Each returns a tight bullet report. Synthesized in the main context.</p>
+        <div class="fanout">
+          <div class="source">
+            <span class="pill">/bencium-init</span>
+            <span>→ 3 parallel agents</span>
+          </div>
+          <div class="agents">
+            <div class="agent">
+              <div class="n">agent 01</div>
+              <div class="t">structure</div>
+              <div class="b">entry points · build · layout</div>
+            </div>
+            <div class="agent">
+              <div class="n">agent 02</div>
+              <div class="t">data</div>
+              <div class="b">schemas · API · env vars</div>
+            </div>
+            <div class="agent">
+              <div class="n">agent 03</div>
+              <div class="t">tests + CI</div>
+              <div class="b">framework · coverage · gates</div>
+            </div>
+          </div>
+          <div class="cap">3-agent cap · small repos stay sequential</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOOP -->
+  <section id="loop" class="reveal">
+    <div class="section-head">
+      <div>
+        <div class="num">[ 02 ]</div>
+        <h2>The seven-phase loop.</h2>
+      </div>
+      <p class="blurb">Every slice runs through the same seven phases. Each has its own ANSI banner so you always know whether the agent is thinking, executing locally, or verifying on the deployed env.</p>
+    </div>
+
+    <div class="loop-strip" id="loopstrip">
+      <div class="loop-card c1">
+        <div class="step">PHASE 01</div>
+        <div class="glyph">🗺</div>
+        <h3>Roadmap</h3>
+        <p>Living tasks.md split into <span class="kbd">## Now</span> (≤15) and <span class="kbd">## Roadmap</span>. New ideas append, never derail.</p>
+        <div class="cmd"><code>/bencium-feature</code> · <code>/bencium-promote</code></div>
+      </div>
+      <div class="loop-card c2">
+        <div class="step">PHASE 02</div>
+        <div class="glyph">📋</div>
+        <h3>Plan / spec</h3>
+        <p>Agent writes a 10-25 line plan and stops. Must name the failing test and the <span class="kbd">[deployed]</span> row before approval. The plan IS the spec.</p>
+        <div class="cmd"><code>/bencium-next</code> phase A</div>
+      </div>
+      <div class="loop-card c3">
+        <div class="step">PHASE 03</div>
+        <div class="glyph">🔨</div>
+        <h3>Build — red → green</h3>
+        <p>Writes the declared failing test first. Implementation is blocked until red is observed for the right reason. Then green. Then mark task <span class="kbd">[x]</span>.</p>
+        <div class="cmd"><code>/bencium-next</code> phase B</div>
+      </div>
+      <div class="loop-card c4">
+        <div class="step">PHASE 04</div>
+        <div class="glyph">✓</div>
+        <h3>Test (local)</h3>
+        <p>Walks local ACCEPTANCE rows. <span class="kbd">[deployed]</span> rows are reported as DEFERRED-TO-SMOKE — never marked from local state.</p>
+        <div class="cmd"><code>/bencium-verify</code></div>
+      </div>
+      <div class="loop-card c5">
+        <div class="step">PHASE 05</div>
+        <div class="glyph">🚀</div>
+        <h3>Deploy</h3>
+        <p>Re-runs verify (refuses on fail), ships, health-checks 6×10s, logs the release. Rollback is one command.</p>
+        <div class="cmd"><code>/bencium-deploy</code> · <code>/bencium-rollback</code></div>
+      </div>
+      <div class="loop-card c6">
+        <div class="step">PHASE 06</div>
+        <div class="glyph">🔥</div>
+        <h3>Smoke (deployed)</h3>
+        <p>After deploy, re-walks every <span class="kbd">[deployed]</span> row against the live URL with real HTTP. Local green never marks a deployed row.</p>
+        <div class="cmd"><code>/bencium-deploy</code> step 5.5</div>
+      </div>
+      <div class="loop-card c7">
+        <div class="step">PHASE 07</div>
+        <div class="glyph">💭</div>
+        <h3>Reflect</h3>
+        <p>Auto-fires on any verify / deploy / smoke fail. Five-whys postmortem → archive entry → proposes a new <span class="kbd">[deployed]</span> row so the gap can't reopen.</p>
+        <div class="cmd"><code>/bencium-retro</code></div>
+      </div>
+    </div>
+    <div class="loop-hint">← scroll →</div>
+  </section>
+
+  <!-- DECISIONS -->
+  <section id="decisions" class="reveal">
+    <div class="section-head">
+      <div>
+        <div class="num">[ 03 ]</div>
+        <h2>Locked decisions.</h2>
+      </div>
+      <p class="blurb">Excerpts from <span class="kbd">PLAN.md</span> — the choices that make this work, and the ones we deliberately said no to.</p>
+    </div>
+
+    <div class="decision-term">
+      <div class="head">
+        <span>cat PLAN.md | grep -A1 'decisions locked'</span>
+        <span>1.2 KB</span>
+      </div>
+      <div class="body">
+        <div class="decision-row">
+          <div class="k">form factor</div>
+          <div class="v">Claude Code plugin — slash commands, auto-skills, a single hook. No web app, no daemon.</div>
+        </div>
+        <div class="decision-row">
+          <div class="k">memory model</div>
+          <div class="v">Tiered markdown — hot <code>memory.md</code> auto-injected at SessionStart, cold <code>archive/NNNN-*.md</code> append-only. No vector DB.</div>
+        </div>
+        <div class="decision-row">
+          <div class="k">verify gate</div>
+          <div class="v">Agent walks every unchecked item in <code>ACCEPTANCE.md</code> against actual code, tests, and deploy. Evidence required.</div>
+        </div>
+        <div class="decision-row">
+          <div class="k">plan gate</div>
+          <div class="v">BUILD phase is entered only after explicit user approval. The plan IS the spec — no accidental coding.</div>
+        </div>
+        <div class="decision-row">
+          <div class="k">tdd gate</div>
+          <div class="v">BUILD refuses to edit implementation files until a declared failing test is observed in <code>red</code>. Trivial-task and explicit-bypass paths are logged to <code>memory.md</code>.</div>
+        </div>
+        <div class="decision-row">
+          <div class="k">deployed verify</div>
+          <div class="v">ACCEPTANCE rows tagged <code>[deployed]</code> are <em>never</em> evaluated locally. <code>/bencium-deploy</code> step 5.5 re-walks them against <code>deploy.url</code>. No smoke, no shipped.</div>
+        </div>
+        <div class="decision-row">
+          <div class="k">opinionation</div>
+          <div class="v">Templates ship neutral. Your opinions live in <code>.harness/rules.md</code>, so the harness adapts to your stack.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INSTALL -->
+  <section id="install" class="reveal">
+    <div class="install-wrap">
+      <div class="install-side">
+        <div class="num" style="font-family:var(--mono);font-size:11.5px;color:var(--plan);letter-spacing:0.08em;margin-bottom:1rem;">[ 04 ] INSTALL</div>
+        <h3>Two commands, sixty seconds.</h3>
+        <p>Inside Claude Code. No accounts. No infrastructure. No new tools to learn beyond the ones you already use.</p>
+      </div>
+      <div>
+        <div class="install-cmds">
+          <div class="install-row">
+            <code>/plugin marketplace add bencium-io/bencium-harness</code>
+            <button type="button" data-copy>copy</button>
+          </div>
+          <div class="install-row">
+            <code>/plugin install bencium-harness@bencium-harness-local</code>
+            <button type="button" data-copy>copy</button>
+          </div>
+        </div>
+        <div class="install-tip">restart Claude Code · run <span class="kbd">/bencium-init</span> in any directory · greenfield or brownfield, both work</div>
+        <div class="install-tip" style="margin-top:0.5rem;color:var(--faint);">portable: the same command prompts degrade to inline numbered questions in claude.ai · Cursor · Codex</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span class="release">Latest release: <strong>Jun Compass</strong> (v0.4.0)</span>
+    <span>
+      <a href="../CHANGELOG.md">changelog</a> &nbsp;·&nbsp;
+      <a href="https://github.com/bencium-io/bencium-harness">source</a> &nbsp;·&nbsp;
+      <a href="https://bencium.io">bencium.io</a>
+    </span>
+  </footer>
+
+</div>
+
+<script>
+  // sticky nav border
+  const nav = document.getElementById('topnav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 8);
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // copy buttons
+  document.querySelectorAll('[data-copy]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const code = btn.previousElementSibling.textContent.trim();
+      navigator.clipboard.writeText(code).then(() => {
+        btn.classList.add('copied');
+        btn.textContent = 'copied';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.textContent = 'copy';
+        }, 1600);
+      });
+    });
+  });
+
+  // phase cycle in hero terminal
+  const phases = [
+    { name: 'ROADMAP', color: 'var(--plan)' },
+    { name: 'PLAN',    color: 'var(--plan)' },
+    { name: 'BUILD',   color: 'var(--build)' },
+    { name: 'TEST',    color: 'var(--test)' },
+    { name: 'DEPLOY',  color: 'var(--deploy)' },
+    { name: 'SMOKE',   color: 'var(--smoke)' },
+    { name: 'REFLECT', color: 'var(--reflect)' }
+  ];
+  const cycle = document.getElementById('cycle');
+  const phaseName = document.getElementById('phase-name');
+  if (cycle && phaseName) {
+    const glyphs = cycle.querySelectorAll('.glyph');
+    let i = 0;
+    const tick = () => {
+      glyphs.forEach(g => g.classList.remove('active'));
+      glyphs[i].classList.add('active');
+      phaseName.textContent = phases[i].name;
+      phaseName.style.color = phases[i].color;
+      i = (i + 1) % glyphs.length;
+    };
+    tick();
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setInterval(tick, 1400);
+    }
+  }
+
+  // reveal on scroll
+  const reveals = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('in');
+          io.unobserve(e.target);
+        }
+      });
+    }, { rootMargin: '0px 0px -10% 0px', threshold: 0.05 });
+    reveals.forEach(r => io.observe(r));
+  } else {
+    reveals.forEach(r => r.classList.add('in'));
+  }
+</script>
+</body>
+</html>

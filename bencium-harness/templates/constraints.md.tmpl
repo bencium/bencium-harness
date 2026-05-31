@@ -1,0 +1,23 @@
+# Constraints
+
+Hard limits. Things the agent must NOT violate, regardless of what's convenient.
+
+## Categories to consider
+
+- **Compliance** — GDPR, HIPAA, SOC2, data residency, audit requirements
+- **Performance** — page load < Xs, p95 latency < Y ms, max bundle size
+- **Cost** — monthly LLM budget, database tier, storage cap
+- **Security** — auth model, secrets management, allowed third-party services
+- **UX** — accessibility level (WCAG AA?), supported browsers, offline behavior
+- **Data** — retention period, deletion on request, encryption at rest
+
+## Format
+
+Each constraint should be:
+- Specific (not "be secure" — say what specifically)
+- Measurable or verifiable
+- Linked to a check in ACCEPTANCE.md if testable
+
+## Your constraints
+
+(none yet)

@@ -1,0 +1,45 @@
+# Acceptance
+
+The verify gate. `/bencium-verify` walks this list and checks each item against the actual codebase, tests, and (for `[deployed]`-tagged items) the live URL after `/bencium-deploy`.
+
+Each check must be **specific, observable, and falsifiable**. No vague items like "code is clean."
+
+## Tag conventions
+
+- `- [ ] <check>` — local check. Evaluated by `/bencium-verify` against the working tree.
+- `- [deployed] <check>` — deployed-env check. Skipped by `/bencium-verify` (reason: `awaiting post-deploy smoke`). Re-walked by `/bencium-deploy` Step 5.5 SMOKE against `deploy.url` from `.harness/config.yaml`. A feature is **not shipped** until its `[deployed]` row is checked off against the live URL. Local pass != deployed pass.
+
+## Product checks
+
+Derived from PRD success criteria.
+
+- [ ] {{product_check_1}}
+- [ ] {{product_check_2}}
+- [ ] {{product_check_3}}
+
+## Quality checks
+
+Generic to any production project.
+
+- [ ] No secrets committed (scan for `KEY=`, `sk_live_`, `password =`, etc.)
+- [ ] All list endpoints paginated (default limit)
+- [ ] No `SELECT *` in queries; columns named explicitly
+- [ ] No binary blobs in list/poll endpoints (use `has_<field>` booleans)
+- [ ] Health check endpoint returns 200
+- [ ] UI discloses backend activity: every async action shows a visible state (loading / progress / success / error). No silent fetches, no spinners without context, no failed requests that disappear into the console. The user can always tell what the API/backend/console is doing without opening devtools.
+
+## Deploy checks (local pre-deploy)
+
+- [ ] Build succeeds (`{{build_cmd}}`)
+- [ ] Type check passes (if typed)
+- [ ] Tests pass (including the failing-test-first / TDD red→green test for the current task)
+
+## Deployed-env checks  (re-walked by /bencium-deploy against {{deploy_url}})
+
+Each item here is a feature contract that **must pass against the live URL**, not just the local build. `/bencium-verify` skips these with reason `awaiting post-deploy smoke`; `/bencium-deploy` Step 5.5 SMOKE evaluates them and refuses success on any FAIL.
+
+- [deployed] {{product_check_1}} works at {{deploy_url}} (end-to-end, real network, real env vars)
+- [deployed] No console errors on the deployed page load (`curl` HTML + check for embedded error markers, or a Playwright smoke if available)
+- [deployed] UI loading/error states are wired and visible on the deployed env (no "works on localhost only" regressions from env or build-mode differences)
+
+Add or remove checks as the project grows. Retros (`/bencium-retro`) will propose new checks when failures happen — especially for any local-pass / deployed-fail divergence.

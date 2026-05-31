@@ -1,0 +1,43 @@
+# {{product_name}} — Architecture
+
+**Date:** {{date_iso}}
+
+## Stack
+
+{{stack}}
+
+## Components
+
+- **{{component_1_name}}** — {{component_1_role}}
+- **{{component_2_name}}** — {{component_2_role}}
+- **{{component_3_name}}** — {{component_3_role}}
+
+## Data flow
+
+```
+{{data_flow_diagram_or_prose}}
+```
+
+## Key decisions
+
+- {{decision_1}}
+- {{decision_2}}
+- {{decision_3}}
+
+Decisions get logged individually via `/bencium-decide` and stored in `.harness/archive/`.
+
+## External dependencies
+
+- {{external_dep_1}}
+- {{external_dep_2}}
+
+## Risks
+
+- {{risk_1}}
+- {{risk_2}}
+
+Each risk should have a corresponding check in `ACCEPTANCE.md` or a constraint in `.harness/constraints.md`.
+
+## Deploy target
+
+{{deploy_target}} — see `.harness/config.yaml` for the deploy command and health check.

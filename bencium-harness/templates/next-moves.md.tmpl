@@ -1,0 +1,39 @@
+{{phase_progress_strip}}
+
+Suggested next moves:
+
+▸ /bencium-verify
+  When:    you finished a coding slice but haven't ticked ACCEPTANCE items yet
+  Does:    walks each unchecked ACCEPTANCE.md item against actual code/tests/deploy
+  Output:  PASS/FAIL/SKIP report with file paths and command outputs as evidence
+  Why now: {{verify_reason}}
+
+▸ /bencium-promote
+  When:    ## Now is thinning out and ## Roadmap has items ready to start
+  Does:    moves Roadmap → Now (you pick which, max 15)
+  Top candidates: {{top_roadmap_items}}
+
+▸ /bencium-feature "<title>"
+  When:    a new idea surfaced mid-build that isn't on the roadmap
+  Does:    appends one item to ## Roadmap (asks if you want to promote immediately)
+  Tip:     keep titles short and concrete — one user-visible outcome per item
+
+▸ /bencium-retro [reason]
+  When:    something failed, or you want to bank a learning before /clear
+  Does:    5-whys postmortem → writes archive entry → proposes memory.md + ACCEPTANCE.md updates
+  Output:  one durable learning saved to .harness/memory.md (with your approval)
+
+▸ /bencium-deploy
+  When:    /bencium-verify is fully green
+  Does:    re-runs verify (refuses if any FAIL), runs deploy.cmd, retries health check 6×10s
+  Logs:    every deploy lands in .harness/memory.md under ## Deploys
+
+{{tail_status}}
+
+💡 Token checkpoint
+   Run /clear (or start a new session) before the next slice.
+   No context is lost — the context-loader skill restores it on SessionStart:
+     • .harness/memory.md, rules.md, conventions.md
+     • last 3 entries in .harness/archive/
+     • ## Now from tasks.md, unchecked items in ACCEPTANCE.md
+   Resume with /bencium-next.
