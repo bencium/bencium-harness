@@ -32,20 +32,20 @@ Solo builders and small teams using Claude Code on real projects — not throwaw
 Two slash commands inside Claude Code — no unzip, no `settings.json` editing.
 
 ```
-/plugin marketplace add /path/to/benc-harness-source
-/plugin install bencium-harness@bencium-harness-local
+/plugin marketplace add bencium/bencium-marketplace
+/plugin install bencium-harness@bencium-marketplace
 ```
 
 Restart Claude Code, then verify:
 
 ```
-/plugin list           # bencium-harness@bencium-harness-local should be enabled
+/plugin list           # bencium-harness@bencium-marketplace should be enabled
 /bencium-init          # triggers the 5-question interview
 ```
 
-Full details (updating, public-marketplace path for future distribution, uninstall) live in [`INSTALL.md`](INSTALL.md).
+Developing the plugin itself? Add this repo as a local marketplace instead: `/plugin marketplace add /path/to/benc-harness-source` then `/plugin install bencium-harness@bencium-harness-local`. Full details (updating, local dev, uninstall) live in [`INSTALL.md`](INSTALL.md).
 
-**Uninstall:** `/plugin uninstall bencium-harness@bencium-harness-local` then `/plugin marketplace remove bencium-harness-local`, restart.
+**Uninstall:** `/plugin uninstall bencium-harness@bencium-marketplace` then `/plugin marketplace remove bencium-marketplace`, restart.
 
 ### Why not project-scoped?
 

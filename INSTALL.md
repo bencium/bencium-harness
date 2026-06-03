@@ -1,8 +1,26 @@
 # Install bencium-harness
 
-This plugin is distributed as a **local Claude Code marketplace**. No unzip, no `settings.json` editing, no GitHub push. One marketplace registration, one `/plugin install`.
+This plugin is published in the **bencium-marketplace** Claude Code marketplace. No unzip, no `settings.json` editing. One marketplace registration, one `/plugin install`.
 
-## Test install (local, recommended for dogfooding)
+## Install (public marketplace — recommended)
+
+Inside Claude Code:
+
+```
+/plugin marketplace add bencium/bencium-marketplace
+/plugin install bencium-harness@bencium-marketplace
+```
+
+Restart Claude Code, then verify:
+
+```
+/plugin list           # bencium-harness@bencium-marketplace should be enabled
+/bencium-init          # triggers the 5-question interview
+```
+
+The marketplace pulls the plugin straight from the [`bencium/bencium-harness`](https://github.com/bencium/bencium-harness) repo (`git-subdir` source), so `/plugin marketplace update bencium-marketplace` always fetches the latest release.
+
+## Local development install (for editing the plugin)
 
 ### 1. Register the local marketplace (one-time)
 
@@ -56,25 +74,14 @@ Edit files directly in `/Users/bencium/benc-harness-source/`, then in Claude Cod
 
 Restart and re-test.
 
-## Public install (later, after publishing)
-
-When ready to share publicly, add `bencium-harness` to a public marketplace (e.g. `bencium/bencium-marketplace` on GitHub). Recipients then run:
-
-```
-/plugin marketplace add bencium/bencium-marketplace
-/plugin install bencium-harness@bencium-marketplace
-```
-
-Until then, keep distribution to the local marketplace path above.
-
 ## Uninstall
 
 ```
-/plugin uninstall bencium-harness@bencium-harness-local
-/plugin marketplace remove bencium-harness-local
+/plugin uninstall bencium-harness@bencium-marketplace
+/plugin marketplace remove bencium-marketplace
 ```
 
-Restart Claude Code.
+Restart Claude Code. (Local-dev installs use `@bencium-harness-local` / `bencium-harness-local` instead.)
 
 ## Statusline (optional)
 
@@ -84,7 +91,7 @@ The plugin ships a statusline script at `statusline/harness-status.sh`. Claude C
 {
   "statusLine": {
     "type": "command",
-    "command": "~/.claude/plugins/cache/bencium-harness-local/bencium-harness/<VERSION>/statusline/harness-status.sh",
+    "command": "~/.claude/plugins/cache/bencium-marketplace/bencium-harness/<VERSION>/statusline/harness-status.sh",
     "padding": 1
   }
 }
@@ -93,7 +100,7 @@ The plugin ships a statusline script at `statusline/harness-status.sh`. Claude C
 Replace `<VERSION>` with the installed version (check with `/plugin list`). Then make the script executable:
 
 ```bash
-chmod +x ~/.claude/plugins/cache/bencium-harness-local/bencium-harness/<VERSION>/statusline/harness-status.sh
+chmod +x ~/.claude/plugins/cache/bencium-marketplace/bencium-harness/<VERSION>/statusline/harness-status.sh
 ```
 
 Restart Claude Code. In any project with a `.harness/` folder you will see a two-row bar at the bottom:
