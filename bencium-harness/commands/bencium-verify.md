@@ -1,6 +1,6 @@
 ---
 description: Walk ACCEPTANCE.md against actual repo state, report PASS/FAIL/SKIP with evidence
-allowed-tools: Read, Edit, Bash, Glob, Grep
+allowed-tools: Read, Edit, Bash, Glob, Grep, Task
 ---
 
 You are running `/bencium-verify` — the verification gate.
@@ -41,6 +41,39 @@ For EACH unchecked item in `ACCEPTANCE.md`:
 5. Classify as PASS, FAIL, or SKIP (with reason). SKIP for a local check is only acceptable when it genuinely doesn't apply yet (e.g., "deploy works" before first deploy).
 6. If PASS, mark `- [x]` in ACCEPTANCE.md.
 7. If FAIL or SKIP, leave the line unchanged and record the reason.
+
+## Step 3a: Gamed-test / reward-hacking inspection
+
+A green test only counts if the test still asserts the real behavior. Agents optimize for the metric they're graded on, so before trusting any passing hard check, inspect the changes that produced it. Look at the diff for the test and config files (`git diff` on `*.test.*`, `*.spec.*`, `conftest.py`, snapshots, `vitest.config`, `jest.config`, etc.) and flag any of:
+
+- **Weakened assertions** — `expect(true).toBe(true)`, `assert True`, an assertion deleted/commented, or narrowed to something trivially true.
+- **Hardcoded expected values** that simply echo the implementation's current output (the test would pass for any output).
+- **Skipped / silenced tests** — `.skip`, `xit`, `test.todo`, `@pytest.mark.skip`, `--passWithNoTests`, `|| true` appended to a verify command.
+- **Test edited to fit the code** — the assertion changed to match a wrong result instead of the code being fixed to match the spec.
+- **Blind snapshot updates** — snapshot regenerated (`-u`) without the change being justified in the diff.
+- **Scope-narrowed verify** — `verify.cmd` quietly changed to run fewer tests, or a failing file excluded.
+
+If you find any: record the affected acceptance/hard check as **FAIL** with the file:line evidence, **regardless of the green result**. A gamed pass is a fail. Name the specific gaming pattern in the evidence string.
+
+This is cheap insurance against the exact failure mode where "all tests pass" but the tests no longer test anything.
+
+## Step 3b: Independent verification — separate evaluator (recommended)
+
+The single biggest verification lever is *separation*: an agent grading its own work skews positive. When you (the verifier) also wrote the code in this session, or when a check is subjective / large / easy to rationalize, delegate a skeptical second opinion to a subagent that did **not** write the code.
+
+When to use it:
+
+- **Recommended** when `/bencium-verify` runs in the same session that just built the feature (`/bencium-next` BUILD ran earlier in this context).
+- **Recommended** for checks that are easy to talk yourself into (UX/disclosure rows, "feature actually works end to end", anything without a hard binary test).
+- **Skip** for a small change you didn't author, or when every check is backed by an unambiguous hard test that passed Step 3a — separation adds latency for no signal there.
+
+How:
+
+1. Spawn **one** `Task` subagent (type `Explore` or general) — at most three only if you need to shard a long ACCEPTANCE list; one task each, never nested. Honor the 3-agent cap.
+2. Brief it tightly: "You are an independent QA reviewer. You did NOT write this code. Be skeptical — default to FAIL when evidence is thin." Hand it the unchecked local `ACCEPTANCE.md` rows, the `git diff`, and the `verify.cmd` output. Ask for a concise per-row **PASS/FAIL with file:line evidence** and a one-line reason — nothing else (keep the main context clean).
+3. Reconcile: where the subagent's verdict is stricter than yours, take the stricter one unless you have concrete contradicting evidence. Surface any disagreement in the report (`builder said PASS, independent reviewer said FAIL — <reason>`).
+
+The subagent is advisory to the gate, not a separate gate — its FAILs flip the corresponding rows to FAIL in your report.
 
 ## Step 4: Report
 
@@ -165,6 +198,8 @@ Rules for populating:
 
 - Never mark a check `[x]` without actual evidence (file path, grep result, command output).
 - Never invent results. If you can't verify a check, mark it SKIP with a reason — don't guess.
+- **A gamed pass is a FAIL.** If Step 3a finds a weakened/skipped/hardcoded test or a narrowed `verify.cmd`, the backed check is FAIL regardless of the green result. Green is necessary, not sufficient — the test must still assert the real behavior.
+- **Prefer separation on self-authored work.** If you verified a feature you also built in this session, run Step 3b — a same-context self-grade skews positive. When the independent reviewer is stricter, take the stricter verdict unless you can refute it with concrete evidence. The 3-agent cap is hard; one verifier subagent is the norm.
 - **Never evaluate `[deployed]`-tagged rows locally.** They are SKIP with reason `awaiting post-deploy smoke` until `/bencium-deploy` walks them against `deploy.url`. Marking one `[x]` from local state is a false confirmation — the exact failure mode this gate was built to prevent.
 - Do not modify source code during verify. Only update ACCEPTANCE.md checkboxes and .harness/memory.md.
 - Never skip the TEST banner or the memory confirmation line — they're how the user knows where they are in the loop.

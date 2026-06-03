@@ -13,6 +13,27 @@ Theme vocabulary (pick one when cutting a release):
 
 ---
 
+## Jun Hardening — v0.6.0 (2026-06-03)
+
+Adopts the highest-value lessons from Anthropic's *Harness design for long-running application development* (Mar 2026) that the harness wasn't yet using. The article's central finding — an agent grading its own work skews positive, and *separation* is the strongest fix — exposed that `/bencium-verify` ran in the builder's own context. This release closes the self-evaluation gap and hardens green-means-shipped. **No new commands** (count stays 9): the verification changes are internal steps, and the context-handoff lesson is carried by the existing nudge points rather than a new command — keeping with the article's own "strip pieces no longer load-bearing" principle.
+
+### Added
+- **Independent evaluator in `/bencium-verify` (Step 3b).** When verify runs in the same session that built the feature — or for subjective rows easy to rationalize — it now delegates a skeptical second opinion to a `Task` subagent that did NOT write the code ("default to FAIL when evidence is thin"), reconciling to the stricter verdict. Bounded by the hard 3-agent cap (one verifier is the norm). Directly adopts the article's single biggest lever: *separating the agent doing the work from the agent judging it.* `Task` added to `/bencium-verify` `allowed-tools`.
+- **Gamed-test / reward-hacking inspection in `/bencium-verify` (Step 3a).** Before trusting any green check, verify inspects the test/config diff for weakened or skipped assertions, hardcoded echo values, tests edited to fit the code, blind snapshot updates, and scope-narrowed `verify.cmd`. A gamed pass is recorded as FAIL with file:line evidence regardless of the green result. Addresses the article's warning that agents optimize for the metric they're graded on.
+- **`## Session handoff` block in `memory.md.tmpl`.** A volatile, overwrite-in-place slot for "where we are right now" (active task · up next · blockers · uncommitted files). The existing `next-moves.md.tmpl` "Token checkpoint" nudge now tells the agent to refresh it before `/clear`/compaction when stopping mid-task, and `context-loader` treats it as the most recent state on SessionStart. This is the article's "context resets need a handoff artifact with enough state to pick up cleanly" — carried by existing systems, not a new command. (Considered a dedicated `/bencium-checkpoint` command and rejected it as surface-area bloat: native compaction + `context-loader` already cover most of it.)
+
+### Hard rules added
+- `/bencium-verify`: a gamed pass is a FAIL (green is necessary, not sufficient — the test must still assert the real behavior); prefer Step 3b separation on self-authored work and take the stricter verdict unless it can be refuted with concrete evidence.
+
+### Fixed
+- `marketplace.json` plugin `version` was stale at `0.2.0`; bumped to `0.6.0` to match `plugin.json`.
+
+### Considered, not included
+- A dedicated `/bencium-checkpoint` command (folded into the handoff nudge above instead).
+- A standalone `/bencium-review` fresh-context code reviewer (sibling of the Step 3b evaluator) — available on request.
+
+---
+
 ## Jun Lantern — v0.5.0 (2026-05-29)
 
 Makes harness reports legible to downstream automation, sharpens the project-rules scaffold, and surfaces the "ordering invariant" pattern as a first-class concept. The harness now signals state in machine-readable form at every loop boundary so CI scripts, dashboards, and follow-up commands can consume it directly without scraping prose.

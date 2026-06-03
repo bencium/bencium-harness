@@ -29,7 +29,7 @@ You should also invoke this skill whenever:
    - `tasks.md` (project root) — read the `## Now` section only.
    - `ACCEPTANCE.md` (project root) — read all unchecked items.
 
-3. Internally summarize what you learned. Do NOT print the summary to the user unless they ask — this is context for YOU.
+3. Internally summarize what you learned. Do NOT print the summary to the user unless they ask — this is context for YOU. If `.harness/memory.md` contains a `## Session handoff` block, treat it as the **most recent state** — that's where the last session said it left off (active task, up next, blockers, uncommitted files). Start there.
 
 4. If you find anything in memory or recent archive that directly contradicts what the user just asked, surface it: "Heads up: a decision in archive/NNNN says X — does this still apply, or has it changed?"
 

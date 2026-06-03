@@ -158,7 +158,7 @@ Runs `/bencium-verify` first — **refuses to deploy if it fails**. On pass: run
 ```
 Runs the configured rollback command and logs the reason to the archive.
 
-**10. Next session.** Run `/clear` or close and reopen Claude Code. The `context-loader` skill auto-injects `memory.md` + `rules.md` + the last 3 archive entries at SessionStart, so the agent resumes with full project memory. Back to step 3.
+**10. Next session.** Run `/clear` or close and reopen Claude Code. The `context-loader` skill auto-injects `memory.md` + `rules.md` + the last 3 archive entries at SessionStart, so the agent resumes with full project memory. If you stopped mid-task, the `## Session handoff` block in `memory.md` (refreshed at any loop boundary per the next-moves "Token checkpoint" nudge) tells the agent exactly where it left off. Back to step 3.
 
 That's the whole loop. Nine commands, two auto-skills, one hook — designed to be the rhythm of how you actually build.
 
@@ -171,7 +171,7 @@ That's the whole loop. Nine commands, two auto-skills, one hook — designed to 
 | `/bencium-feature "desc"` | Append a feature to `tasks.md ## Roadmap`. |
 | `/bencium-promote` | Move Roadmap items into Now, or demote stale memory entries to archive. |
 | `/bencium-decide "title"` | Log an architectural decision to `.harness/archive/`. |
-| `/bencium-verify` | Walk `ACCEPTANCE.md` against the actual code. Report pass/fail with evidence. |
+| `/bencium-verify` | Walk `ACCEPTANCE.md` against the actual code. Report pass/fail with evidence. Inspects for gamed tests (weakened/skipped assertions) and can delegate a skeptical second opinion to an independent reviewer subagent. |
 | `/bencium-deploy` | Verify → deploy → health check → log. Refuses on verify fail. |
 | `/bencium-rollback "reason"` | Run the configured rollback command and log the reason. |
 | `/bencium-retro` | Postmortem after a failure. Proposes memory + acceptance updates. |

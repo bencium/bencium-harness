@@ -31,9 +31,13 @@ Suggested next moves:
 {{tail_status}}
 
 💡 Token checkpoint
-   Run /clear (or start a new session) before the next slice.
+   If you're stopping mid-task, first refresh the `## Session handoff` block in
+   .harness/memory.md (active task · up next · blockers · uncommitted files) so the
+   reset loses nothing. Overwrite it — it's volatile; durable facts go to ## Decisions
+   / ## Learnings.
+   Then run /clear (or start a new session) before the next slice.
    No context is lost — the context-loader skill restores it on SessionStart:
-     • .harness/memory.md, rules.md, conventions.md
+     • .harness/memory.md (incl. ## Session handoff), rules.md, conventions.md
      • last 3 entries in .harness/archive/
      • ## Now from tasks.md, unchecked items in ACCEPTANCE.md
    Resume with /bencium-next.
