@@ -4,6 +4,10 @@ Code-quality rules the agent must follow on every task. Auto-loaded each session
 
 Keep this file short. If a rule needs a paragraph of justification, link to a decision in `.harness/archive/` instead.
 
+## Explain the loop step
+
+At each loop step, before moving on, briefly explain what's being done: what the step does, why it's needed, and any non-obvious decision or edge case. Keep it to a few sentences — motivation first, then the key mechanics. When it matters, note the problem being solved, why this approach over the alternative, and what it affects downstream. State the *why*, not just the *what*. Reference real code (`file:line`) when it makes the explanation concrete. If something is genuinely ambiguous, say so. No quizzes, no checklists, no persona — just a clear, concise account of the work at each step.
+
 ## File & component size
 
 - **Per-file LOC cap: 800** for React/TS. Refactor before extending a file past **500**.

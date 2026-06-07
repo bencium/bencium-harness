@@ -1056,6 +1056,7 @@
     <div class="links">
       <a href="#loop">loop</a>
       <a href="#features">features</a>
+      <a href="#trace">trace</a>
       <a href="#decisions">decisions</a>
       <a href="#install">install</a>
     </div>
@@ -1068,13 +1069,13 @@
       <div class="eyebrow">
         <span class="tag">JUN COMPASS · v0.4.0</span>
         <span class="sep">·</span>
-        <span>A Claude Code plugin</span>
+        <span>A Claude Code / Codex plugin</span>
       </div>
       <h1>
         Plan, red, green, ship, <span class="accent">verify on the live URL.</span>
       </h1>
       <p class="lead">
-        Plan before code. Write a failing test before implementation. Verify locally — then verify again on the deployed URL. A Claude Code plugin that refuses to confuse "passes on my machine" with "shipped."
+        Plan before code. Write a failing test before implementation. Verify locally — then verify again on the deployed URL. A Claude Code / Codex plugin that refuses to confuse "passes on my machine" with "shipped."
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/bencium/bencium-harness">View on GitHub <span aria-hidden="true">→</span></a>
@@ -1332,11 +1333,58 @@
     <div class="loop-hint">← scroll →</div>
   </section>
 
+  <!-- TRACE / NOTHING VANISHES -->
+  <section id="trace" class="reveal">
+    <div class="section-head">
+      <div>
+        <div class="num">[ 03 ]</div>
+        <h2>Nothing slips through.</h2>
+      </div>
+      <p class="blurb">A workflow without checkpoints forgets itself. This one records the decisions, the timing, and the context at every step — so you can always see what happened, and always pick up exactly where you left off.</p>
+    </div>
+
+    <p style="font-size:clamp(1rem,1.5vw,1.1875rem);line-height:1.55;color:var(--ink-soft);max-width:62ch;margin-bottom:2.5rem;">
+      You can't improve what you can't see — and invisible work becomes invisible failure. So every meaningful moment in the build loop leaves a written trace: the decisions, the timing, the context. Some of this the harness always did; the build record and the clean handoff note are the newest pieces. Together they're one thing — a way of working where nothing falls through the cracks.
+    </p>
+
+    <div class="bento">
+      <div class="cell wide">
+        <span class="corner">DECISIONS</span>
+        <h3>Every choice, with its reasons.</h3>
+        <p>When a real decision gets made — a tool, a tradeoff, a direction — it's written down with the options weighed and why this one won. Months later you see not just what was chosen, but why.</p>
+      </div>
+
+      <div class="cell wide">
+        <span class="corner">RECOVERY</span>
+        <h3>Stop anytime, lose nothing.</h3>
+        <p>Close the laptop mid-task, reset, come back next week — work resumes already knowing what you were doing, what's next, and what was blocking you.</p>
+      </div>
+
+      <div class="cell">
+        <span class="corner">TRAIL</span>
+        <h3>A dated record of every step.</h3>
+        <p>Each step leaves a timestamped, written trace. Look back and see exactly what happened, in order — no reconstructing it from memory.</p>
+      </div>
+
+      <div class="cell">
+        <span class="corner">BUILD RECORD</span>
+        <h3>Every round of work, written down.</h3>
+        <p>When a piece of work finishes, the harness saves a short record of what got built, what was tested, and where it landed — so the busiest part of the loop is no longer invisible.</p>
+      </div>
+
+      <div class="cell wide">
+        <span class="corner">HANDOFF</span>
+        <h3>A clean handoff note, every time.</h3>
+        <p>Before you step away, the harness keeps a tidy, fixed-shape summary — current task, what's next, blockers — that the next session reads instantly.</p>
+      </div>
+    </div>
+  </section>
+
   <!-- DECISIONS -->
   <section id="decisions" class="reveal">
     <div class="section-head">
       <div>
-        <div class="num">[ 03 ]</div>
+        <div class="num">[ 04 ]</div>
         <h2>Locked decisions.</h2>
       </div>
       <p class="blurb">Excerpts from <span class="kbd">PLAN.md</span> — the choices that make this work, and the ones we deliberately said no to.</p>
@@ -1350,7 +1398,7 @@
       <div class="body">
         <div class="decision-row">
           <div class="k">form factor</div>
-          <div class="v">Claude Code plugin — slash commands, auto-skills, a single hook. No web app, no daemon.</div>
+          <div class="v">Claude Code / Codex plugin — slash commands, auto-skills, a single hook. No web app, no daemon.</div>
         </div>
         <div class="decision-row">
           <div class="k">memory model</div>
@@ -1384,9 +1432,9 @@
   <section id="install" class="reveal">
     <div class="install-wrap">
       <div class="install-side">
-        <div class="num" style="font-family:var(--mono);font-size:11.5px;color:var(--plan);letter-spacing:0.08em;margin-bottom:1rem;">[ 04 ] INSTALL</div>
+        <div class="num" style="font-family:var(--mono);font-size:11.5px;color:var(--plan);letter-spacing:0.08em;margin-bottom:1rem;">[ 05 ] INSTALL</div>
         <h3>Two commands, sixty seconds.</h3>
-        <p>Inside Claude Code. No accounts. No infrastructure. No new tools to learn beyond the ones you already use.</p>
+        <p>Inside Claude Code or Codex. No accounts. No infrastructure. No new tools to learn beyond the ones you already use.</p>
       </div>
       <div>
         <div class="install-cmds">
@@ -1399,7 +1447,7 @@
             <button type="button" data-copy>copy</button>
           </div>
         </div>
-        <div class="install-tip">restart Claude Code · run <span class="kbd">/bencium-init</span> in any directory · greenfield or brownfield, both work</div>
+        <div class="install-tip">restart Claude Code / Codex · run <span class="kbd">/bencium-init</span> in any directory · greenfield or brownfield, both work</div>
         <div class="install-tip" style="margin-top:0.5rem;color:var(--faint);">portable: the same command prompts degrade to inline numbered questions in claude.ai · Cursor · Codex</div>
       </div>
     </div>

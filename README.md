@@ -12,6 +12,10 @@ AI agents drift. They forget decisions across `/clear`. They scaffold code that 
 
 One command — `/bencium-init` — runs a 5-question interview and produces a complete planning kit in ~60 seconds: PRD, ARCHITECTURE, tasks.md, ACCEPTANCE.md, and a `.harness/` folder with config, memory, rules, and an archive for decisions.
 
+## Nothing vanishes
+
+A workflow without checkpoints forgets itself — and invisible work becomes invisible failure. So every boundary in the loop leaves a written trace: each real decision is recorded with the options weighed and why this one won; every loop-boundary command emits a timestamped, machine-readable result; and the `## Session handoff` block keeps a fixed-shape note of where you are so a `/clear` or crash always has something structured to resume from. The newest pieces are the **build record** (`/bencium-next` now emits its own marker, so the busiest phase of the loop is no longer the only one without an audit trail) and the **structured handoff** (five named fields instead of freeform prose). The decision log, the per-boundary markers, the recovery path — those the harness always did. Together they're one advantage: you can see exactly what happened, and you can always pick up where you left off.
+
 ## How it compares
 
 | | bencium-harness | BMAD-method | Just a CLAUDE.md |
@@ -87,6 +91,27 @@ new-project/
 
 Brownfield repos are auto-detected — `/bencium-init` scans existing code and produces retrospective PRD/ARCH without overwriting anything.
 
+## How to start a new project with bencium-harness with a vague idea?
+
+Short answer: describe your idea in the chat, then run `/bencium-init` in the empty project dir. That one command runs a 5-question interview and generates the entire scaffold in a single ~60s pass.
+
+**The greenfield-from-a-prompt flow:**
+
+```bash
+mkdir my-project && cd my-project && git init
+```
+
+Then in the chat:
+
+1. **Type your idea first** — e.g. "A SaaS invoice generator for freelancers, Next.js + Supabase, deploy to Vercel." There's no `--seed` flag, but `/bencium-init` reads the conversation, so your prompt pre-fills the answers.
+2. **Run `/bencium-init`.** Empty dir → it auto-detects greenfield, skips repo discovery, and goes straight to 5 questions (it'll pre-suggest answers from what you typed):
+   - **Product** — what is this? (one sentence)
+   - **User** — who's it for?
+   - **Killer feature** — the one thing it must do well
+   - **Stack** — e.g. Next.js + Supabase + Vercel
+   - **Deploy target** — e.g. `vercel --prod`, plus a health-check URL/command
+3. **It writes everything in one pass:** `README.md`, `PRD.md`, `ARCHITECTURE.md`, `tasks.md`, `ACCEPTANCE.md`, `CLAUDE.md` at root, plus a `.harness/` dir (`config.yaml`, `memory.md`, `conventions.md`, `rules.md`, `glossary.md`, `constraints.md`, `archive/`). Add `.harness/state` to `.gitignore`.
+
 ## End-to-end walkthrough: empty directory → shipped app
 
 The full loop, in order, for a brand-new toy app:
@@ -158,7 +183,7 @@ Runs `/bencium-verify` first — **refuses to deploy if it fails**. On pass: run
 ```
 Runs the configured rollback command and logs the reason to the archive.
 
-**10. Next session.** Run `/clear` or close and reopen Claude Code. The `context-loader` skill auto-injects `memory.md` + `rules.md` + the last 3 archive entries at SessionStart, so the agent resumes with full project memory. If you stopped mid-task, the `## Session handoff` block in `memory.md` (refreshed at any loop boundary per the next-moves "Token checkpoint" nudge) tells the agent exactly where it left off. Back to step 3.
+**10. Next session.** Run `/clear` or close and reopen Claude Code. The `context-loader` skill auto-injects `memory.md` + `rules.md` + the last 3 archive entries at SessionStart, so the agent resumes with full project memory. If you stopped mid-task, the `## Session handoff` block in `memory.md` — a fixed five-field shape (active task · phase · up next · blockers · uncommitted), refreshed at any loop boundary per the next-moves "Token checkpoint" nudge — tells the agent exactly where it left off, with structured fields rather than freeform prose. Back to step 3.
 
 That's the whole loop. Nine commands, two auto-skills, one hook — designed to be the rhythm of how you actually build.
 
@@ -186,10 +211,11 @@ That's the whole loop. Nine commands, two auto-skills, one hook — designed to 
 
 ## Machine-readable markers
 
-Every loop-boundary command emits a fenced ```` ```json ```` block as its last output, so CI scripts, dashboards, and follow-up commands can consume results without scraping prose. Schema version `1`. The four markers:
+Every loop-boundary command emits a fenced ```` ```json ```` block as its last output, so CI scripts, dashboards, and follow-up commands can consume results without scraping prose. Schema version `1`. The five markers:
 
 | Marker | Producer | Contains |
 |---|---|---|
+| `bencium-build-result` | `/bencium-next` Step 4.3 | task, complete/incomplete, TDD path (red-green / trivial-bypass / skip-tdd), declared test + status, files touched, HEAD sha, optional learning |
 | `bencium-verify-result` | `/bencium-verify` Step 8 | hard checks, local soft checks (pass/fail/skip + items + evidence), deferred-to-smoke entries |
 | `bencium-smoke-result` | `/bencium-deploy` Step 5.5 | `deploy_url`, deployed sha, per-`[deployed]`-row result against the live URL |
 | `bencium-deploy-result` | `/bencium-deploy` Step 6 | sha, target, deploy exit code, health check, smoke summary |

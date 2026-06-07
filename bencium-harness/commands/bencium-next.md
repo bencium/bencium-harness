@@ -184,6 +184,36 @@ When the task is complete:
 
    Put `/bencium-verify` at the top of the suggestions. The template's trailing 💡 Token checkpoint block is the boundary nudge — leave it in.
 
+### Step 4.3 — Marker block (final output — for downstream tools)
+
+After the `next-moves` render, emit a fenced ```` ```json ```` block as the **very last** thing Phase B prints. Nothing after it — no prose, no banner, no trailing whitespace beyond the closing fence. This is the loop step's audit record: PLAN and BUILD are the heart of the loop, and until now they left no structured trace (verify/deploy/smoke/retro all do). One marker captures the executed plan *and* the build outcome, so it doubles as the per-loop-step checkpoint.
+
+Schema:
+
+```json
+{
+  "_marker": "bencium-build-result",
+  "version": 1,
+  "ts": "<ISO8601 UTC>",
+  "phase": "build",
+  "task": "<picked task title>",
+  "result": "complete" | "incomplete",
+  "tdd": "red-green" | "trivial-bypass" | "skip-tdd",
+  "test": { "file": "<path>", "name": "<test name>", "status": "green" | "n/a" },
+  "files_touched": ["<path>", "..."],
+  "sha": "<short git sha of HEAD>",
+  "learning": "<one-line>" | null
+}
+```
+
+Rules for populating:
+
+- `result` is `complete` only when Step 4.2 observed green (or a declared `trivial-bypass` / `skip-tdd` path that finished and the task was marked `[x]`). If BUILD stopped mid-task (plan-wrong pause in Step 4.1, an unresolved red), emit `incomplete` with whatever `files_touched` you have so far — an incomplete record still beats no record for recovery.
+- `tdd` reflects which Step 4.0 path ran: `red-green` (normal), `trivial-bypass` (`none — trivial (declared)`), or `skip-tdd` (explicit bypass logged to memory).
+- `test.status` is `green` on the normal path after Step 4.2 confirms it; `n/a` for `trivial-bypass` / `skip-tdd`.
+- `sha` from `git rev-parse --short HEAD` (read-only — BUILD does not commit, so this is the pre-existing HEAD, used as a pointer to where the work sits).
+- `learning` mirrors the one-liner written under `## Learnings`, or `null` if memory was unchanged.
+
 ## Hard rules
 
 - **Phase A MUST NOT call Edit, Write, or any Bash command that mutates state.** Read-only tools only (Read, Glob, Grep, read-only Bash like `cat`/`ls`/`git log`).
@@ -194,3 +224,4 @@ When the task is complete:
 - Do not modify the order of `## Now` items unless the user asks.
 - If the task is too big to finish in one go, split it during Phase A: propose 2-3 sub-tasks in the plan, get approval to edit `tasks.md`, then proceed.
 - If `.harness/conventions.md` is missing, note "conventions.md not found — running without quality guardrails" in the plan instead of skipping silently.
+- **The Step 4.3 marker block MUST be the last output of Phase B** — after the `next-moves` render, nothing after the closing fence (no prose, no banner, no whitespace). Downstream tools locate it as the trailing fenced JSON. Markers report state, not opinion — no recommendations inside the JSON; those stay in the prose above. The schema is versioned (`version: 1`); future changes bump the integer. Phase A (PLAN) emits no marker — it is the read-only gate, and the BUILD marker already records the plan that was executed.
