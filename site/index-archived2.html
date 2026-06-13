@@ -41,50 +41,14 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     overflow-x: hidden;
-    position: relative;
   }
 
   ::selection { background: var(--ink); color: var(--bg); }
 
   .page {
-    position: relative;
-    z-index: 1;
     max-width: var(--maxw);
     margin: 0 auto;
     padding: 0 clamp(1.25rem, 5vw, 2.5rem);
-  }
-
-  /* ---------- background blobs (soft, slow, decorative) ---------- */
-  .blobs {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    overflow: hidden;
-    pointer-events: none;
-  }
-  .blob {
-    position: absolute;
-    width: clamp(360px, 46vw, 720px);
-    aspect-ratio: 1;
-    border-radius: 50%;
-    filter: blur(58px);
-    will-change: transform, opacity;
-  }
-  .blob.lime {
-    background: radial-gradient(circle at 50% 50%, oklch(90% 0.20 125 / 0.55), transparent 68%);
-  }
-  .blob.blue {
-    background: radial-gradient(circle at 50% 50%, oklch(64% 0.21 255 / 0.5), transparent 68%);
-  }
-  .blob.b1 { top: 1%;   left: -10%;  animation: blobPulse 13s var(--ease) infinite; }
-  .blob.b2 { top: 15%;  right: -13%; animation: blobPulse 17s var(--ease) infinite 2.5s; }
-  .blob.b3 { top: 31%;  left: 26%;   animation: blobPulse 11s var(--ease) infinite 1.2s; }
-  .blob.b4 { top: 47%;  right: -11%; animation: blobPulse 15s var(--ease) infinite 3.4s; }
-  .blob.b5 { top: 63%;  left: -11%;  animation: blobPulse 12s var(--ease) infinite 0.6s; }
-  .blob.b6 { top: 80%;  right: 18%;  animation: blobPulse 16s var(--ease) infinite 2s; }
-  @keyframes blobPulse {
-    0%, 100% { transform: scale(1)    translate(0, 0);          opacity: 0.32; }
-    50%      { transform: scale(1.22) translate(2%, -3%);       opacity: 0.5; }
   }
 
   code, .mono { font-family: var(--mono); }
@@ -394,15 +358,6 @@
     color: var(--ink-soft);
     max-width: 46ch;
   }
-  .boundary-note {
-    margin-top: clamp(2rem, 4vh, 3rem);
-    padding-top: 1.25rem;
-    border-top: 1px solid var(--line);
-    font-size: 1.0625rem;
-    line-height: 1.55;
-    color: var(--muted);
-    max-width: 60ch;
-  }
 
   /* ---------- loop section ---------- */
   .loop-list {
@@ -551,23 +506,13 @@
   footer a { text-decoration: none; transition: color 160ms var(--ease); }
   footer a:hover { color: var(--ink); }
   footer .release b { color: var(--ink); font-weight: 500; }
-  footer .credit {
-    flex-basis: 100%;
-    margin-top: 0.85rem;
-    padding-top: 0.95rem;
-    border-top: 1px solid var(--line);
-    color: var(--muted);
-  }
-  footer .credit b { color: var(--ink); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--faint); }
-  footer .credit:hover b { text-decoration-color: var(--ink); }
 
   /* ---------- reveal ---------- */
   .reveal { opacity: 0; transform: translateY(14px); transition: opacity 650ms var(--ease), transform 650ms var(--ease); }
   .reveal.in { opacity: 1; transform: none; }
 
   @media (prefers-reduced-motion: reduce) {
-    .marquee-track, .blob { animation: none; }
-    .blob { opacity: 0.34; }
+    .marquee-track { animation: none; }
     .reveal { opacity: 1; transform: none; transition: none; }
     html { scroll-behavior: auto; }
     * { transition-duration: 0ms !important; }
@@ -576,15 +521,6 @@
 </head>
 <body>
 
-<div class="blobs" aria-hidden="true">
-  <div class="blob lime b1"></div>
-  <div class="blob blue b2"></div>
-  <div class="blob blue b3"></div>
-  <div class="blob lime b4"></div>
-  <div class="blob blue b5"></div>
-  <div class="blob lime b6"></div>
-</div>
-
 <div class="page">
 
   <nav class="top" id="topnav">
@@ -592,7 +528,6 @@
     <div class="links">
       <a href="#loop">how it works</a>
       <a href="#features">what you get</a>
-      <a href="#beyond">beyond code</a>
       <a href="#trace">nothing slips</a>
       <a href="#decisions">decisions</a>
       <a href="#install">install</a>
@@ -603,7 +538,7 @@
   <!-- HERO -->
   <section class="hero">
     <div>
-      <div class="eyebrow">v0.6.0 · Jun Hardening</div>
+      <div class="eyebrow">v0.4.0 · Jun Compass</div>
       <h1>This harness cannot be banned.</h1>
       <p class="deck">Provider-independent guardrails and workflows that build your software, run your research, and write your content.</p>
       <p class="lead">
@@ -760,44 +695,10 @@
     </div>
   </section>
 
-  <!-- BEYOND CODE -->
-  <section id="beyond" class="reveal">
-    <div class="section-head">
-      <span class="num">03 — beyond code</span>
-      <h2>Not just for software.</h2>
-      <p class="blurb">Strip it back and it is a work loop with four parts: a plan you approve before work starts, a checklist of what "done" means, a step that demands proof for each item, and a memory that carries between sessions. None of that is about code. It fits any work where "looks finished" and "actually done" are dangerously different things.</p>
-    </div>
-
-    <div class="features">
-      <div class="feature">
-        <span class="corner">research</span>
-        <h3>Research and due diligence.</h3>
-        <p>Each row becomes "every claim has a real source." The proof step is fact-checking, and it will not accept a claim backed by a misquoted or made-up source. Going live means opening the real source and confirming it says what you claim.</p>
-      </div>
-      <div class="feature">
-        <span class="corner">content</span>
-        <h3>Content and writing.</h3>
-        <p>Your checklist is the brief: covers these points, this tone, both languages at parity, a real call to action. "Go live" means published, links work, the page renders. Memory holds your voice and style so the next piece starts aligned.</p>
-      </div>
-      <div class="feature">
-        <span class="corner">compliance</span>
-        <h3>Regulated and compliance work.</h3>
-        <p>The strongest fit. Every requirement is a row with evidence attached, and the decision log is an audit trail. A draft your team approved is not the same as filed with the regulator: the same rule in a different costume.</p>
-      </div>
-      <div class="feature">
-        <span class="corner">and more</span>
-        <h3>And further still.</h3>
-        <p>Course material, where rows are learning objectives. Proposals and grants, where every requirement is answered and "go live" is submitted before the deadline. Data reports, where no finding lands without the number behind it. Team runbooks that improve themselves after each miss.</p>
-      </div>
-    </div>
-
-    <p class="boundary-note">It earns its keep when "done" is something you can write down and proof actually matters. For open exploration with no quality bar, the plan and checklist are overhead you can skip.</p>
-  </section>
-
   <!-- TRACE -->
   <section id="trace" class="reveal">
     <div class="section-head">
-      <span class="num">04 — nothing slips</span>
+      <span class="num">03 — nothing slips</span>
       <h2>Nothing falls through the cracks.</h2>
       <p class="blurb">A way of working with no gaps. Every meaningful moment leaves a written trace: the decisions, the timing, the context. You can always see what happened, and always pick up exactly where you left off.</p>
     </div>
@@ -834,7 +735,7 @@
   <!-- DECISIONS -->
   <section id="decisions" class="reveal">
     <div class="section-head">
-      <span class="num">05 — decisions</span>
+      <span class="num">04 — decisions</span>
       <h2>The choices that make it work.</h2>
       <p class="blurb">The things it commits to, and the ones it deliberately said no to.</p>
     </div>
@@ -896,13 +797,12 @@
   </section>
 
   <footer>
-    <span class="release">Latest release: <b>Jun Hardening</b> (v0.6.0)</span>
+    <span class="release">Latest release: <b>Jun Compass</b> (v0.4.0)</span>
     <span>
-      <a href="https://github.com/bencium/bencium-harness/blob/main/CHANGELOG.md">changelog</a> &nbsp;·&nbsp;
+      <a href="../CHANGELOG.md">changelog</a> &nbsp;·&nbsp;
       <a href="https://github.com/bencium/bencium-harness">source</a> &nbsp;·&nbsp;
       <a href="https://bencium.io">bencium.io</a>
     </span>
-    <a class="credit" href="https://bencium.io">Architected and developed by <b>bencium.io</b></a>
   </footer>
 
 </div>

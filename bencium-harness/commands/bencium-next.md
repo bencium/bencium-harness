@@ -1,6 +1,6 @@
 ---
 description: Pick the next task from tasks.md ## Now, write a plan/spec, gate on user approval, then build
-allowed-tools: Read, Edit, Bash
+allowed-tools: Read, Edit, Write, Bash
 ---
 
 You are running `/bencium-next` — the build-loop driver.
@@ -21,6 +21,48 @@ From the `## Now` section, find the first unchecked task (`- [ ]`). If `## Now` 
 - Tell the user "Now section is clear."
 - Suggest: `/bencium-verify` (if anything was just completed), `/bencium-promote` (to move Roadmap → Now), or `/bencium-feature` (to add new work).
 - STOP.
+
+## Step 2.5: PROTOTYPE detour (optional — UI tasks only)
+
+This is the **one** place `/bencium-next` may write files before the PLAN gate — and it writes **only throwaway prototype code** to a disposable location, never real source. PLAN (Step 3) stays 100% read-only. The detour exists so you can eyeball look-and-feel *before* committing to a spec, then fold the chosen direction back into the plan. Phase styling: PROTOTYPE (orange / 🎨) in the `phase-banner` skill.
+
+**Trigger detection.** Decide whether the picked task touches UI — same heuristic as the PLAN "Design skills to invoke" section: titles mentioning a page, screen, component, view, route, form, layout, dashboard, landing, modal, styling, theme, or any visible surface. If the task is pure backend / data / infra / refactor, **skip this step entirely** and go to Step 3 — no offer, no output.
+
+**Offer (UI tasks only).** Print:
+
+```
+🎨 This task touches UI. Want to see pixels before planning?
+   Reply 'prototype' to scaffold a throwaway preview (one disposable route, no tests).
+   Reply 'plan' (or anything else) to go straight to the read-only spec.
+```
+
+**STOP and wait for the reply.**
+
+**If the user declines** (`plan` / silence / anything that isn't `prototype`): go to Step 3. No files written.
+
+**If the user replies `prototype`:** record the PROTOTYPE phase for the statusline, print the banner, then run the detour.
+
+```bash
+[ -d .harness ] && printf 'phase=prototype\ntask=%s\nupdated=%s\n' "<picked task title>" "$(date -u +%FT%TZ)" > .harness/state
+```
+
+```
+\033[38;5;208m┌── PROTOTYPE ── throwaway pixels, no commitment ──┐\033[0m
+[🎨] ▸ 🗺️ ▸ 📋 ▸ 🔨 ▸ ✓ ▸ 💭
+```
+
+1. Invoke the `prototype` skill to scaffold a **throwaway** UI preview for this task. Its "several radically different UI variations toggleable from one route" branch is the right fit for eyeballing look-and-feel.
+2. Write the prototype to a **clearly disposable location** so it can never masquerade as the implementation:
+   - a `_prototype` route folder (e.g. `app/_prototype/` or `src/routes/_prototype/`), or
+   - `.harness/prototype/` for standalone static HTML.
+   Recommend adding the chosen path to `.gitignore`. This code is **not** counted toward `ACCEPTANCE.md`, gets **no** test, and is expected to be deleted once a direction is chosen.
+3. Let the user eyeball the variations and pick a direction (or ask for tweaks). When they settle, capture the chosen direction in one or two sentences — the layout, type, color, and the one key move.
+4. Close the banner:
+   ```
+   \033[38;5;208m└──────────────────────────────────────────────────┘\033[0m
+   ```
+
+Then proceed to Step 3 (PLAN) with the chosen direction in hand. The detour writes no `.harness/state` `phase=plan` line itself — Step 3 does that. **Do not start coding the real feature here.** The throwaway is for looking, not shipping.
 
 ## Step 3: PHASE A — PLAN (read-only, gated)
 
@@ -67,6 +109,10 @@ Design skills to invoke (only if UI touched):
   - For copy:     typography
   - After code:   design-review
   (skip this section if no UI involved)
+
+Prototype direction (only if Step 2.5 ran):
+  - <chosen look-and-feel in one line> — throwaway preview at <path>, delete after BUILD
+  (omit this section entirely if no prototype detour ran)
 
 Risks / open questions:
   - <one risk, or "None">
@@ -216,7 +262,7 @@ Rules for populating:
 
 ## Hard rules
 
-- **Phase A MUST NOT call Edit, Write, or any Bash command that mutates state.** Read-only tools only (Read, Glob, Grep, read-only Bash like `cat`/`ls`/`git log`).
+- **Phase A MUST NOT call Edit, Write, or any Bash command that mutates state.** Read-only tools only (Read, Glob, Grep, read-only Bash like `cat`/`ls`/`git log`). The optional PROTOTYPE detour (Step 2.5) is the **only** place `/bencium-next` may write before approval, and it writes **only throwaway prototype files** to a disposable location (`_prototype/` route or `.harness/prototype/`) — never real source, never a test, never anything counted toward ACCEPTANCE. The detour runs only for UI tasks and only when the user types `prototype`; a non-UI task or any other reply goes straight to the read-only PLAN.
 - **Phase A plan MUST include `Failing test (red):` and `Deployed-env check (smoke):` fields.** Refuse to proceed if either is missing. The fields force the user to decide *what proves this works* before any code is written — both locally and on the deployed env.
 - **Phase B is entered only after explicit user approval.** Silence, "looks good", or anything ambiguous does NOT count — re-prompt.
 - **Phase B Step 4.0 (RED) MUST run before any implementation edit.** No writing implementation files until the declared failing test is observed in a red state for the expected reason. The only exceptions are `none — trivial (declared)` and an explicit `skip tdd` with a justification logged to `.harness/memory.md ## TDD bypasses`.

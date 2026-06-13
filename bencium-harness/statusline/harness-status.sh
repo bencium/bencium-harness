@@ -82,6 +82,11 @@ strip_phase() {
 }
 sep=" ▸ "
 strip="$(strip_phase roadmap 🗺️)${sep}$(strip_phase plan 📋)${sep}$(strip_phase build 🔨)${sep}$(strip_phase test ✓)${sep}$(strip_phase deploy 🚀)${sep}$(strip_phase smoke 🔥)${sep}$(strip_phase reflect 💭)"
+# PROTOTYPE is an optional pre-PLAN detour, not a canonical phase: prepend a transient
+# [🎨] marker rather than polluting the seven-phase strip. (Stays in sync with phase-banner.)
+if [ "$phase" = "prototype" ]; then
+  strip="[🎨]${sep}${strip}"
+fi
 
 # ----- format cost (2dp) and ctx (int %) -----
 cost_fmt="—"

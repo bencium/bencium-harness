@@ -74,6 +74,23 @@ This is verified by the `UI discloses backend activity` row in `ACCEPTANCE.md` q
 - Trivial tasks (typo, single-line rename, copy-only) may declare `Failing test: none — trivial (declared)`. Any other bypass requires an explicit `skip tdd` and a justification logged to `.harness/memory.md ## TDD bypasses`.
 - A task is not done until the test passes locally **and** any related `[deployed]` ACCEPTANCE row passes against the live URL after `/bencium-deploy`.
 
+## Browser & UAT testing (stack preset)
+
+The harness ships **no** browser-test engine — it's tool-agnostic. What it enforces is the *split*: local **TEST** (`✓`, yellow) proves behavior on your machine; deployed **SMOKE** (`🔥`, magenta) re-proves it against the live URL. A passing local browser test never flips a `[deployed]` ACCEPTANCE row — only `/bencium-deploy` Step 5.5 can. Pick tools per layer; wire the local one into `.harness/config.yaml verify.cmd`.
+
+**Deployed UAT / SMOKE — interactive (recommended): Claude-in-Chrome MCP.**
+Trust-vetted (Anthropic-maintained) and already the harness's recommended MCP. Drives the live URL for screenshots, console errors, and network checks on `[deployed]` rows during `/bencium-verify` and `/bencium-deploy` SMOKE. Best for exploratory/visual acceptance where you want eyes on real pixels.
+
+**Local automated E2E — pick what your stack/CI already uses (no default imposed):**
+
+- **Playwright** — mature, cross-browser, strong CI story. Mentioned as an option, not a recommendation; choose it only if it already fits your stack.
+- **Cypress / WebdriverIO / Selenium** — equally valid if your team or CI is already invested. The harness doesn't care which — it just needs a `verify.cmd` that exits non-zero on failure and a declared red→green test per `/bencium-next` plan.
+
+**Emerging — watch, don't adopt yet: Vibium.**
+AI-native browser automation from Jason Huggins (creator of Selenium/Appium, co-founder of Sauce Labs) — plain-English tests, AI self-healing locators, WebDriver BiDi, and one-command Claude Code integration. Verifiable identity, Apache-2.0, designed *for* AI agents. **But:** as of mid-2026 it's pre-functional (placeholder NPM/PyPI packages, single maintainer assembling a team), so it fails the harness's adoption bar (multi-maintainer governance + production track record). Keep it on the radar for the agent-driven TEST/SMOKE layers; don't put it on a critical path yet. Re-evaluate when packages ship and a real community forms.
+
+**Rule of thumb:** automated E2E for deterministic CI gates (the local TEST layer), Claude-in-Chrome for interactive deployed UAT (the SMOKE layer). Never let either stand in for the other — that's the whole point of the TEST/SMOKE split.
+
 ## Quality gates
 
 - Bilingual EN/HU preserved if applicable (keep á é í ó ö ő ú ü ű).

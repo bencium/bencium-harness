@@ -10,7 +10,14 @@ dist/
 build/
 .next/
 
+# Backup files
+*.bak.md
+
+# Private planning notes
+V2.md
+
 # Logs & env
 *.log
 .env
 .env.local
+.gstack/
