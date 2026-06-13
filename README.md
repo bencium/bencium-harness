@@ -79,12 +79,82 @@ Short answer: describe your idea in the chat, then run `/bencium-init` in the em
 | `/bencium-rollback "reason"` | Run the configured rollback command and log the reason. |
 | `/bencium-retro` | Postmortem after a failure. Proposes memory and acceptance updates. |
 
-## Use in tools without slash-command plugins
+## Use it in browser and desktop AI tools (not just the terminal)
 
-Some tools don't support installable slash-command plugins. You can still get partial value:
+The harness is not only for terminal coding tools. It is plain prompt files and
+templates in a public repo, so any AI that can read a web link can set it up for
+you — claude.ai, the Codex app, ChatGPT, Gemini, and similar tools.
 
-1. Grab the `templates/` folder.
-2. Copy the templates into your repo (rename `.tmpl` to real names, fill placeholders).
-3. Point your tool at the repo.
+**What the tool needs to be able to do:** read a public GitHub link, and either
+write files into your project (tools with a connected repo or project folder) or
+hand you the files to paste in (everything else). No install, no plugin.
 
-You lose slash commands, auto-injection, and `/bencium-verify` enforcement. You keep the structural value of having `tasks.md`, `ACCEPTANCE.md`, and `.harness/memory.md` in the repo for the agent to read.
+Copy a prompt below into your AI tool and send it.
+
+### 1. Install — point the tool at the repo and let it set up the harness
+
+```text
+Read the bencium-harness repository at https://github.com/bencium/bencium-harness
+
+It is a build-loop "harness": command prompts live in bencium-harness/commands/
+and file templates live in bencium-harness/templates/. I want to use it on MY
+project.
+
+Do this in order:
+1. Fetch and read every file in bencium-harness/templates/ and
+   bencium-harness/commands/ so you understand the loop.
+2. Interview me with the 5 setup questions from the bencium-init command:
+   product (one sentence), who it's for, the one killer feature, the stack, and
+   the deploy target (plus a health-check URL or command). Ask them, then wait.
+3. From my answers, create the harness in my project: tasks.md, ACCEPTANCE.md,
+   PRD.md, ARCHITECTURE.md, CLAUDE.md, and a .harness/ folder containing
+   config.yaml, memory.md, conventions.md, rules.md, glossary.md, constraints.md,
+   and an empty archive/ folder — each filled in from the matching template.
+4. From now on, when I type a command name like "bencium-next" or
+   "bencium-verify", behave exactly as that command's file in
+   bencium-harness/commands/ tells you to — including the two hard rules:
+   never write code before I approve the plan, and never call something done
+   without showing evidence.
+
+If you cannot write files into my project, output each file's full contents in a
+code block so I can save them myself. Confirm you have read the repo, then start
+the interview.
+```
+
+### 2. Resume — paste this at the start of every new chat
+
+Browser tools have no memory between chats, so this prompt does by hand what the
+terminal version does automatically (loads your project context back in).
+
+```text
+Before we continue, load my bencium-harness context from this project:
+- .harness/memory.md — read the "## Session handoff" block first, then the rest
+- .harness/rules.md and .harness/conventions.md
+- the 3 newest files in .harness/archive/
+- the "## Now" section of tasks.md
+- the unchecked items in ACCEPTANCE.md
+
+Summarize where we left off in 3 lines (current task, what's next, any blockers),
+then wait for my next command.
+```
+
+### 3. Run a step — drive the loop by naming a command
+
+```text
+Run bencium-next. Pick the top unchecked task in tasks.md "## Now", read
+.harness/conventions.md and the relevant ACCEPTANCE.md rows, then write a short
+plan (files to touch, approach, what "done" means) and STOP. Do not write any
+code until I reply "approve".
+```
+
+Swap `bencium-next` for any command — `bencium-verify`, `bencium-decide "title"`,
+`bencium-feature "idea"`, `bencium-deploy`, `bencium-retro` — and the tool follows
+that command's file from the repo.
+
+**What you keep vs. the terminal version.** You keep the whole method: the
+plan-before-code gate, the acceptance checklist, the decision log, and a memory
+that lives in your repo. You lose the *automatic* parts — context no longer loads
+itself (use the resume prompt), there are no colored phase banners or status bar,
+and nothing physically blocks an out-of-order step; the tool follows the rules
+because the prompt tells it to, not because a plugin enforces it. A first-class
+version for these tools is on the roadmap — see the MCP companion idea.

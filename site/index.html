@@ -364,6 +364,14 @@
     max-width: 56ch;
     margin-top: 1rem;
   }
+  .section-head .blurb a {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: var(--faint);
+    transition: text-decoration-color 160ms var(--ease);
+  }
+  .section-head .blurb a:hover { text-decoration-color: var(--ink); }
 
   /* ---------- feature list (flat, no boxes) ---------- */
   .features {
@@ -868,6 +876,15 @@
         <div class="k">your rules, your stack</div>
         <div class="v">It ships with no opinions baked in. Your preferences live in one file, so it adapts to how you already work.</div>
       </div>
+    </div>
+  </section>
+
+  <!-- LINEAGE -->
+  <section id="lineage" class="reveal">
+    <div class="section-head">
+      <span class="num">06 — lineage</span>
+      <h2>Where this came from.</h2>
+      <p class="blurb">The inspiration comes from our earlier build — the world's first brand strategy harness, <a href="https://ai.brandguide.me">ai.brandguide.me</a>. Built between August 2025 and March 2026 to reach full capacity, with many new things still coming. Try it free and see how it guides you when building a new brand.</p>
     </div>
   </section>
 
