@@ -16,6 +16,11 @@ build/
 # Private planning notes
 V2.md
 PRD-mcp-companion.md
+LANDING.md
+PLAN.md
+
+# Landing site (kept out of the public repo)
+site/
 
 # Logs & env
 *.log

@@ -9,7 +9,17 @@ Theme vocabulary (pick one when cutting a release):
 
 ## Unreleased
 
-(nothing queued)
+Committed since v0.6.0, not yet cut into a tagged release.
+
+### Added
+- **🎨 PROTOTYPE detour in `/bencium-next` (Step 2.5).** Optional pre-PLAN step, UI tasks only: scaffolds a *throwaway* one-route preview (via the `prototype` skill) to a disposable location (`_prototype/` or `.harness/prototype/`) so you can eyeball look-and-feel before committing to a spec, then folds the chosen direction into the plan. Writes only throwaway code — never real source, no tests, not counted toward `ACCEPTANCE.md`. Opt-in (`prototype` vs `plan`); pure backend/data/infra tasks skip it silently. It is the *one* place `/bencium-next` writes before the PLAN gate; PLAN itself stays 100% read-only.
+- **PROTOTYPE phase in `phase-banner`** (orange / 🎨). A transient detour prefix `[🎨]` only — it deliberately never enters the canonical 7-phase progress strip, which stays stable across projects.
+- **"Explain the loop step" convention** (`conventions.md.tmpl`). At each loop step the agent briefly explains what it's doing and *why* (motivation first, then mechanics; cite real `file:line`) — no quizzes, checklists, or persona.
+- **"Browser & UAT testing" stack preset** (`conventions.md.tmpl`). Tool-agnostic guidance enforcing the local **TEST** (`✓`) vs deployed **SMOKE** (`🔥`) split: Claude-in-Chrome (Anthropic-maintained) for interactive deployed UAT; pick-your-own E2E runner (Playwright / Cypress / WebdriverIO / Selenium — none imposed) wired into `verify.cmd` for the local gate; Vibium flagged *watch-tier* (pre-functional, single-maintainer — fails the adoption bar) until packages ship.
+
+### Changed
+- **README rewritten in plain English and repositioned beyond the terminal.** Drops Claude-Code-specific framing in favor of "agentic coding tools like codex, opencode," and adds a **"Use it in browser and desktop AI tools"** section with copy-paste **Install / Resume / Run** prompts that point any URL-reading AI (claude.ai, the Codex app, ChatGPT, Gemini) at the repo to set up and drive the harness without a plugin. Jargon glossed throughout; install/uninstall/recommended-MCP/marker/walkthrough sections trimmed for scannability.
+- **`bencium-marketplace` is now the primary install path** (`/plugin marketplace add bencium/bencium-marketplace`).
 
 ---
 
